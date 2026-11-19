@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AudioBufferAnnouncer } from '../../engine/audioAnnouncer';
+import { PocketManager } from '../../engine/pocketManager';
 import {
   MAJOR_KEYS,
   ALL_CHORD_IDS,
@@ -91,6 +92,105 @@ describe('SilentKeepAlive WAV buffer', () => {
       }
     }
     expect(nonZeroCount).toBeGreaterThan(1000);
+  });
+});
+
+describe('PocketManager lock-screen Media Session metadata', () => {
+  it('publishes metadata with synchronous inline data-URL artwork (no background network fetch when locked)', () => {
+    const fakeMediaSession = {
+      metadata: null as {
+        title?: string;
+        artist?: string;
+        album?: string;
+        artwork?: Array<{ src: string; sizes?: string; type?: string }>;
+      } | null,
+      playbackState: 'none',
+      setActionHandler: vi.fn(),
+    };
+
+    class MockMediaMetadata {
+      title?: string;
+      artist?: string;
+      album?: string;
+      artwork?: Array<{ src: string; sizes?: string; type?: string }>;
+      constructor(init: {
+        title?: string;
+        artist?: string;
+        album?: string;
+        artwork?: Array<{ src: string; sizes?: string; type?: string }>;
+      }) {
+        Object.assign(this, init);
+      }
+    }
+
+    const origMediaSession = Object.getOwnPropertyDescriptor(
+      navigator,
+      'mediaSession',
+    );
+    const origMediaMetadata = (globalThis as Record<string, unknown>)
+      .MediaMetadata;
+    const origCreateElement = document.createElement.bind(document);
+    const canvasSpy = vi
+      .spyOn(document, 'createElement')
+      .mockImplementation((tagName: string) => {
+        if (tagName === 'canvas') {
+          return {
+            width: 256,
+            height: 256,
+            getContext: () => ({
+              fillStyle: '',
+              strokeStyle: '',
+              lineWidth: 1,
+              lineCap: 'round',
+              lineJoin: 'round',
+              fillRect: vi.fn(),
+              strokeRect: vi.fn(),
+              save: vi.fn(),
+              restore: vi.fn(),
+              translate: vi.fn(),
+              scale: vi.fn(),
+              beginPath: vi.fn(),
+              arc: vi.fn(),
+              stroke: vi.fn(),
+            }),
+            toDataURL: () => 'data:image/png;base64,iVBORw0KGgo=',
+          } as unknown as HTMLCanvasElement;
+        }
+        return origCreateElement(tagName);
+      });
+
+    Object.defineProperty(navigator, 'mediaSession', {
+      value: fakeMediaSession,
+      configurable: true,
+    });
+    (globalThis as Record<string, unknown>).MediaMetadata = MockMediaMetadata;
+
+    try {
+      const pocket = new PocketManager();
+      pocket.updateMetadata({
+        title: 'Q1 Answer: I – IV – V',
+        artist: 'Ears Only',
+        album: 'C Major · 120 BPM',
+      });
+
+      expect(fakeMediaSession.metadata).not.toBeNull();
+      expect(fakeMediaSession.metadata!.title).toBe('Q1 Answer: I – IV – V');
+      expect(fakeMediaSession.metadata!.artist).toBe('Ears Only');
+      expect(fakeMediaSession.metadata!.album).toBe('C Major · 120 BPM');
+      expect(fakeMediaSession.metadata!.artwork).toHaveLength(1);
+      expect(fakeMediaSession.metadata!.artwork![0].src).toMatch(
+        /^data:image\/png;base64,/,
+      );
+      pocket.dispose();
+    } finally {
+      canvasSpy.mockRestore();
+      if (origMediaSession) {
+        Object.defineProperty(navigator, 'mediaSession', origMediaSession);
+      } else {
+        delete (navigator as unknown as Record<string, unknown>).mediaSession;
+      }
+      (globalThis as Record<string, unknown>).MediaMetadata = origMediaMetadata;
+    }
   });
 });
 
