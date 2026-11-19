@@ -19,18 +19,44 @@ describe('Ears Only App UI', () => {
       screen.getByRole('button', { name: /start pocket mode/i }),
     ).toBeInTheDocument();
 
-    // Advanced settings collapsed by default
+    // Advanced settings collapsed by default (only Timing & speech remains inside)
     const advButton = screen.getByRole('button', {
       name: /advanced settings/i,
     });
     expect(advButton).toHaveAttribute('aria-expanded', 'false');
-    expect(
-      screen.queryByText(/play chords behind answer voice/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/pause between repeats/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/speech rate/i)).not.toBeInTheDocument();
 
     // Core defaults visible on primary screen
     expect(screen.getByText('80 BPM')).toBeInTheDocument();
     expect(screen.getByText('1.5s per chord')).toBeInTheDocument();
+
+    // Progression length supports 2..8 with 4 selected by default
+    const lengthGroup = screen.getByRole('group', { name: /progression length/i });
+    const lengthButtons = within(lengthGroup).getAllByRole('button');
+    expect(lengthButtons.map((b) => b.textContent)).toEqual([
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+    ]);
+    expect(lengthButtons[2]).toHaveAttribute('aria-pressed', 'true');
+
+    // Session & answer loop switches + Key orientation promoted out of Advanced Settings
+    expect(
+      screen.getByRole('switch', { name: /play chords behind answer voice/i }),
+    ).toHaveAttribute('aria-checked', 'true');
+    expect(
+      screen.getByRole('switch', {
+        name: /play progression one final time after answer/i,
+      }),
+    ).toHaveAttribute('aria-checked', 'true');
+    expect(
+      screen.getByRole('group', { name: /key orientation/i }),
+    ).toBeInTheDocument();
 
     // Key mode visible in primary controls: Auto-rotate on the left (default), Fixed key on right
     const keyModeGroup = screen.getByRole('group', { name: /key mode/i });
@@ -126,7 +152,7 @@ describe('Ears Only App UI', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // Toggle Speak triad qualities right inside Allowed chords
+    // Toggle Speak triad qualities & Play chords behind answer right inside Allowed chords
     await user.click(
       screen.getByRole('switch', { name: /speak triad qualities/i }),
     );
@@ -134,6 +160,18 @@ describe('Ears Only App UI', () => {
       screen.getByRole('switch', { name: /speak triad qualities/i }),
     ).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByText(/one major, two minor/i)).toBeInTheDocument();
+
+    // Select progression length 8 and verify 8 stage slots render cleanly
+    const lengthGroup = screen.getByRole('group', { name: /progression length/i });
+    await user.click(within(lengthGroup).getByRole('button', { name: '8' }));
+    expect(screen.getByTestId('stage-slot-7')).toBeInTheDocument();
+
+    // Toggle Play progression one final time after answer OFF right under Question repeats
+    await user.click(
+      screen.getByRole('switch', {
+        name: /play progression one final time after answer/i,
+      }),
+    );
 
     // Switch Key mode to Fixed key right on primary screen and pick G Major
     await user.click(screen.getByRole('button', { name: /fixed key/i }));
@@ -153,13 +191,11 @@ describe('Ears Only App UI', () => {
     await user.click(screen.getByRole('button', { name: 'Scale tone 5' }));
     await user.click(screen.getByRole('button', { name: 'High (+2)' }));
 
-    // Expand streamlined Advanced Settings
+    // Expand streamlined Advanced Settings (Timing & speech only)
     await user.click(
       screen.getByRole('button', { name: /advanced settings/i }),
     );
-    expect(
-      screen.getByText(/play chords behind answer voice/i),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/pause between repeats/i)).toBeInTheDocument();
     expect(screen.getByText(/Seven half diminished/i)).toBeInTheDocument();
 
     // Switch to Minor 7b5 naming & Browser TTS
@@ -180,6 +216,9 @@ describe('Ears Only App UI', () => {
       window.localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}',
     );
     expect(saved.announceTriadQuality).toBe(true);
+    expect(saved.playChordsBehindAnswer).toBe(true);
+    expect(saved.playFinalReplayAfterAnswer).toBe(false);
+    expect(saved.progressionLength).toBe(8);
     expect(saved.halfDimNaming).toBe('minor-seven-flat-five');
     expect(saved.timbre).toBe('soft-pad');
     expect(saved.ambience).toBe('lush-hall');
@@ -188,8 +227,8 @@ describe('Ears Only App UI', () => {
     expect(saved.droneOctave).toBe(2);
     expect(saved.keyMode).toBe('auto-rotate');
     expect(saved.fixedKey).toBe(7);
-    expect(saved.chordVolume).toBe(0.75);
-    expect(saved.voiceVolume).toBe(0.65);
+    expect(saved.chordVolume).toBe(0.8);
+    expect(saved.voiceVolume).toBe(0.8);
     expect(saved.droneVolume).toBe(0.5);
     expect(saved.voiceSource).toBe('speech-synthesis');
   });

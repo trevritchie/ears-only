@@ -275,13 +275,21 @@ describe('meditative instruments & ambience', () => {
     }
   });
 
-  it('defaults fresh settings to felt-piano + warm-room while preserving classic saved timbres', () => {
+  it('defaults fresh settings to felt-piano + warm-room, 80% mix, final replay ON, length 4 (max 8), while preserving classic saved timbres', () => {
     const fresh = sanitizeSettings(null);
     expect(fresh.timbre).toBe('felt-piano');
     expect(fresh.ambience).toBe('warm-room');
     expect(fresh.announceTriadQuality).toBe(false);
+    expect(fresh.playChordsBehindAnswer).toBe(true);
+    expect(fresh.playFinalReplayAfterAnswer).toBe(true);
+    expect(fresh.progressionLength).toBe(4);
+    expect(fresh.chordVolume).toBe(0.8);
+    expect(fresh.voiceVolume).toBe(0.8);
 
     expect(sanitizeSettings({ announceTriadQuality: true }).announceTriadQuality).toBe(true);
+    expect(sanitizeSettings({ progressionLength: 8 }).progressionLength).toBe(8);
+    expect(sanitizeSettings({ progressionLength: 1 }).progressionLength).toBe(2);
+    expect(sanitizeSettings({ progressionLength: 12 }).progressionLength).toBe(8);
 
     expect(sanitizeSettings({ timbre: 'electric-piano' }).timbre).toBe(
       'electric-piano',

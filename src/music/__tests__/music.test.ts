@@ -178,15 +178,17 @@ describe('RootBassVoiceLedStrategy', () => {
 });
 
 describe('progression & key generators', () => {
-  it('avoids consecutive duplicate chords when pool has >= 2 chords', () => {
+  it('avoids consecutive duplicate chords when pool has >= 2 chords (up to 8-chord progressions)', () => {
     const pool: ChordId[] = ['I', 'IV', 'V', 'vi'];
-    for (let run = 0; run < 20; run++) {
-      const seq = generateProgression(pool, 5);
-      expect(seq).toHaveLength(5);
-      for (let i = 0; i < seq.length; i++) {
-        expect(pool).toContain(seq[i]);
-        if (i > 0) {
-          expect(seq[i]).not.toBe(seq[i - 1]);
+    for (const len of [4, 5, 8]) {
+      for (let run = 0; run < 15; run++) {
+        const seq = generateProgression(pool, len);
+        expect(seq).toHaveLength(len);
+        for (let i = 0; i < seq.length; i++) {
+          expect(pool).toContain(seq[i]);
+          if (i > 0) {
+            expect(seq[i]).not.toBe(seq[i - 1]);
+          }
         }
       }
     }

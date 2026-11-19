@@ -53,6 +53,13 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
     ? snapshot.progression.length || settings.progressionLength
     : settings.progressionLength;
 
+  const isTwoRowStage = !isOrienting && slotCount > 5;
+  const stageColumns = isOrienting
+    ? snapshot.orientationChords.length
+    : isTwoRowStage
+      ? Math.ceil(slotCount / 2)
+      : slotCount;
+
   return (
     <section
       aria-label="Active session stage"
@@ -112,9 +119,7 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
       <div
         className="mt-3 grid gap-2"
         style={{
-          gridTemplateColumns: `repeat(${
-            isOrienting ? snapshot.orientationChords.length : slotCount
-          }, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${stageColumns}, minmax(0, 1fr))`,
         }}
       >
         {isOrienting
@@ -158,10 +163,14 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
                 <div
                   key={`slot-${idx}`}
                   data-testid={`stage-slot-${idx}`}
-                  className={`flex h-16 items-center justify-center rounded-xl border transition-colors ${slotStyle}`}
+                  className={`flex ${isTwoRowStage ? 'h-14' : 'h-16'} items-center justify-center rounded-xl border transition-colors ${slotStyle}`}
                 >
                   {isRevealed ? (
-                    <span className="font-roman text-xl sm:text-2xl font-semibold tracking-tight">
+                    <span
+                      className={`font-roman ${
+                        isTwoRowStage ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'
+                      } font-semibold tracking-tight`}
+                    >
                       {CHORD_DEFS[chordId].symbol}
                     </span>
                   ) : (

@@ -11,8 +11,10 @@ import { SwitchRow } from './SwitchRow';
 interface ChordSelectorProps {
   allowedChords: ChordId[];
   announceTriadQuality: boolean;
+  playChordsBehindAnswer: boolean;
   onChange: (next: ChordId[]) => void;
   onToggleTriadQuality: (enabled: boolean) => void;
+  onToggleChordsBehindAnswer: (enabled: boolean) => void;
 }
 
 function setsMatch(a: readonly ChordId[], b: readonly ChordId[]): boolean {
@@ -24,8 +26,10 @@ function setsMatch(a: readonly ChordId[], b: readonly ChordId[]): boolean {
 export function ChordSelector({
   allowedChords,
   announceTriadQuality,
+  playChordsBehindAnswer,
   onChange,
   onToggleTriadQuality,
+  onToggleChordsBehindAnswer,
 }: ChordSelectorProps) {
   const [minGuardNotice, setMinGuardNotice] = useState(false);
   const selectedSet = new Set(allowedChords);
@@ -140,7 +144,7 @@ export function ChordSelector({
         </p>
       )}
 
-      <div className="mt-4 border-t border-[#2B323B] pt-3.5">
+      <div className="mt-4 space-y-2.5 border-t border-[#2B323B] pt-3.5">
         <SwitchRow
           id="toggle-triad-quality"
           label="Speak triad qualities"
@@ -151,6 +155,14 @@ export function ChordSelector({
           }
           checked={announceTriadQuality}
           onChange={onToggleTriadQuality}
+        />
+
+        <SwitchRow
+          id="toggle-chords-behind-answer"
+          label="Play chords behind answer voice"
+          description="Carves a gentle midrange EQ pocket behind the narrator"
+          checked={playChordsBehindAnswer}
+          onChange={onToggleChordsBehindAnswer}
         />
       </div>
     </section>

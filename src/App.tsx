@@ -36,9 +36,13 @@ export function App() {
       <ChordSelector
         allowedChords={settings.allowedChords}
         announceTriadQuality={settings.announceTriadQuality}
+        playChordsBehindAnswer={settings.playChordsBehindAnswer}
         onChange={(allowedChords) => updateSettings({ allowedChords })}
         onToggleTriadQuality={(announceTriadQuality) =>
           updateSettings({ announceTriadQuality })
+        }
+        onToggleChordsBehindAnswer={(playChordsBehindAnswer) =>
+          updateSettings({ playChordsBehindAnswer })
         }
       />
 

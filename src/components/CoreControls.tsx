@@ -1,12 +1,13 @@
 import { MAJOR_KEYS } from '../music/chords';
 import type { SessionSettings } from '../types/settings';
+import { SwitchRow } from './SwitchRow';
 
 interface CoreControlsProps {
   settings: SessionSettings;
   onUpdate: (patch: Partial<SessionSettings>) => void;
 }
 
-const LENGTH_OPTIONS = [2, 3, 4, 5] as const;
+const LENGTH_OPTIONS = [2, 3, 4, 5, 6, 7, 8] as const;
 const REPEAT_OPTIONS = [1, 2, 3, 4, 5] as const;
 
 export function CoreControls({ settings, onUpdate }: CoreControlsProps) {
@@ -48,13 +49,13 @@ export function CoreControls({ settings, onUpdate }: CoreControlsProps) {
       </div>
 
       {/* Progression Length & Question Repeats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="space-y-4">
         <div>
           <span className="block text-sm font-semibold text-[#F3EFE6]">
             Progression length
           </span>
           <div
-            className="mt-2 grid grid-cols-4 gap-1.5"
+            className="mt-2 grid grid-cols-7 gap-1.5"
             role="group"
             aria-label="Progression length"
           >
@@ -106,6 +107,18 @@ export function CoreControls({ settings, onUpdate }: CoreControlsProps) {
                 </button>
               );
             })}
+          </div>
+
+          <div className="mt-3">
+            <SwitchRow
+              id="toggle-final-replay"
+              label="Play progression one final time after answer"
+              description="Adds an instrumental pass after the spoken answer"
+              checked={settings.playFinalReplayAfterAnswer}
+              onChange={(checked) =>
+                onUpdate({ playFinalReplayAfterAnswer: checked })
+              }
+            />
           </div>
         </div>
       </div>
@@ -199,6 +212,42 @@ export function CoreControls({ settings, onUpdate }: CoreControlsProps) {
             </div>
           </div>
         )}
+
+        <div>
+          <span className="block text-sm font-medium text-[#F3EFE6]">
+            Key orientation
+          </span>
+          <div
+            className="mt-1.5 grid grid-cols-3 gap-1.5"
+            role="group"
+            aria-label="Key orientation"
+          >
+            {(
+              [
+                { id: 'cadence', label: 'I–IV–V–I' },
+                { id: 'tonic', label: 'Tonic I' },
+                { id: 'none', label: 'None' },
+              ] as const
+            ).map((option) => {
+              const active = settings.keyOrientation === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onUpdate({ keyOrientation: option.id })}
+                  className={`min-h-[40px] rounded-xl border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
+                    active
+                      ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
+                      : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </section>
   );

@@ -2,7 +2,6 @@ import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import type { SpeechVoiceOption } from '../engine/speech';
 import type { SessionSettings } from '../types/settings';
-import { SwitchRow } from './SwitchRow';
 
 interface AdvancedSettingsProps {
   settings: SessionSettings;
@@ -41,76 +40,11 @@ export function AdvancedSettings({
       {isOpen && (
         <div
           id="advanced-settings-panel"
-          className="space-y-6 border-t border-[#2B323B] px-4 pb-5 pt-4"
+          className="space-y-3.5 border-t border-[#2B323B] px-4 pb-5 pt-4"
         >
-          {/* 1. Session & Answer Loop */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-[#9CA3AE]">
-              Session &amp; answer loop
-            </h3>
-
-            <div>
-              <span className="block text-sm font-medium text-[#F3EFE6]">
-                Key orientation
-              </span>
-              <div
-                className="mt-1.5 grid grid-cols-3 gap-1.5"
-                role="group"
-                aria-label="Key orientation"
-              >
-                {(
-                  [
-                    { id: 'cadence', label: 'I–IV–V–I' },
-                    { id: 'tonic', label: 'Tonic I' },
-                    { id: 'none', label: 'None' },
-                  ] as const
-                ).map((option) => {
-                  const active = settings.keyOrientation === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => onUpdate({ keyOrientation: option.id })}
-                      className={`min-h-[40px] rounded-xl border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
-                        active
-                          ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
-                          : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <SwitchRow
-              id="toggle-chords-behind-answer"
-              label="Play chords behind answer voice"
-              description="Carves a gentle midrange EQ pocket behind the narrator"
-              checked={settings.playChordsBehindAnswer}
-              onChange={(checked) =>
-                onUpdate({ playChordsBehindAnswer: checked })
-              }
-            />
-
-            <SwitchRow
-              id="toggle-final-replay"
-              label="Play progression one final time after answer"
-              description="Adds an instrumental pass after the spoken answer"
-              checked={settings.playFinalReplayAfterAnswer}
-              onChange={(checked) =>
-                onUpdate({ playFinalReplayAfterAnswer: checked })
-              }
-            />
-          </div>
-
-          {/* 2. Timing & Speech */}
-          <div className="space-y-3.5 border-t border-[#2B323B] pt-4">
-            <h3 className="text-xs font-semibold text-[#9CA3AE]">
-              Timing &amp; speech
-            </h3>
+          <h3 className="text-xs font-semibold text-[#9CA3AE]">
+            Timing &amp; speech
+          </h3>
 
             <div>
               <div className="flex items-baseline justify-between">
@@ -274,7 +208,6 @@ export function AdvancedSettings({
                 </select>
               </div>
             )}
-          </div>
         </div>
       )}
     </section>

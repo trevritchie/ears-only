@@ -357,11 +357,19 @@ describe('SessionController state machine & scheduler', () => {
     advanceAndTick(synth, clock, 1.6);
     expect(controller.getSnapshot().revealedCount).toBe(2);
 
-    // Finish 2nd answer chord speech & grid wait
+    // Finish 2nd answer chord speech & grid wait -> default final replay pass
     announcer.finishLatest();
-    advanceAndTick(synth, clock, 1.6);
-    expect(controller.getSnapshot().phase).toBe('next_question_pause');
+    advanceAndTick(synth, clock, 1.15);
+    expect(controller.getSnapshot().phase).toBe('post_answer_pause');
     expect(synth.ducked).toBe(false);
+
+    // Post-answer pause (0.55s) -> post_answer_replay (2 chords * 1.5s = 3.0s) -> next_question_pause
+    advanceAndTick(synth, clock, 0.6);
+    expect(controller.getSnapshot().phase).toBe('post_answer_replay');
+    expect(controller.getSnapshot().revealedCount).toBe(2);
+
+    advanceAndTick(synth, clock, 3.2);
+    expect(controller.getSnapshot().phase).toBe('next_question_pause');
 
     // Auto-advance to Question 2 directly (no orientation on fixed key)
     advanceAndTick(synth, clock, 1.2);
@@ -456,14 +464,15 @@ describe('SessionController state machine & scheduler', () => {
     expect(synth.ducked).toBe(false);
   });
 
-  it('plays optional post-answer replay when playFinalReplayAfterAnswer is true', () => {
+  it('plays post-answer replay by default and skips it when playFinalReplayAfterAnswer is false', () => {
+    expect(DEFAULT_SETTINGS.playFinalReplayAfterAnswer).toBe(true);
+
     const { controller, synth, announcer, clock } = createHarness({
       allowedChords: ['I', 'IV'],
       bpm: 120, // 1.0s per chord
       progressionLength: 2,
       questionRepeats: 1,
       keyOrientation: 'none',
-      playFinalReplayAfterAnswer: true,
     });
 
     controller.start();
@@ -478,6 +487,23 @@ describe('SessionController state machine & scheduler', () => {
     expect(controller.getSnapshot().phase).toBe('post_answer_replay');
     expect(synth.ducked).toBe(false);
     expect(controller.getSnapshot().revealedCount).toBe(2);
+
+    // Explicitly disabling final replay skips straight to next_question_pause
+    const noReplay = createHarness({
+      allowedChords: ['I', 'IV'],
+      bpm: 120,
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      playFinalReplayAfterAnswer: false,
+    });
+    noReplay.controller.start();
+    noReplay.controller.skipToAnswer();
+    noReplay.announcer.finishLatest();
+    advanceAndTick(noReplay.synth, noReplay.clock, 1.15);
+    noReplay.announcer.finishLatest();
+    advanceAndTick(noReplay.synth, noReplay.clock, 1.15);
+    expect(noReplay.controller.getSnapshot().phase).toBe('next_question_pause');
   });
 
   it('auto-rotates key every K questions, updates scale-tone drone, and applies mix volumes', () => {

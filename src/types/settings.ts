@@ -82,11 +82,11 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   progressionLength: 4,
   questionRepeats: 2,
   playChordsBehindAnswer: true,
-  playFinalReplayAfterAnswer: false,
+  playFinalReplayAfterAnswer: true,
   timbre: 'felt-piano',
   ambience: 'warm-room',
-  chordVolume: 0.75,
-  voiceVolume: 0.65,
+  chordVolume: 0.8,
+  voiceVolume: 0.8,
   keyMode: 'auto-rotate',
   fixedKey: 0,
   rotateEveryNQuestions: 5,
@@ -193,7 +193,7 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
     progressionLength: clampInt(
       obj.progressionLength,
       2,
-      5,
+      8,
       DEFAULT_SETTINGS.progressionLength,
     ),
     questionRepeats: clampInt(
