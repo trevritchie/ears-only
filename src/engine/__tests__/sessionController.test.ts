@@ -307,7 +307,7 @@ describe('SessionController state machine & scheduler', () => {
   it('runs the complete hands-free loop: orientation -> N repeats -> answer reveal -> auto-advance', () => {
     const { controller, synth, announcer, clock, pocket } = createHarness({
       allowedChords: ['I', 'IV', 'V', 'vi'],
-      bpm: 80, // 1.5s per chord
+      bpm: 120, // 4 beats per chord -> 2.0s per chord
       progressionLength: 2,
       questionRepeats: 2,
       repeatPauseSec: 1.0,
@@ -327,8 +327,8 @@ describe('SessionController state machine & scheduler', () => {
     advanceAndTick(synth, clock, 0.25);
     expect(controller.getSnapshot().phase).toBe('orienting_cadence');
 
-    // Finish I-IV-V-I cadence (4 chords: 3 * 0.75 + 1.125 = 3.375s)
-    advanceAndTick(synth, clock, 3.6);
+    // Finish I-IV-V-I cadence (4 chords: 3 * 0.55 + 0.825 = 2.475s)
+    advanceAndTick(synth, clock, 2.6);
     expect(controller.getSnapshot().phase).toBe('inter_phase_pause');
 
     // Finish inter-phase pause -> Pass 1
@@ -337,8 +337,8 @@ describe('SessionController state machine & scheduler', () => {
     expect(controller.getSnapshot().currentPass).toBe(1);
     expect(controller.getSnapshot().revealedCount).toBe(0);
 
-    // Finish Pass 1 (2 chords * 1.5s = 3.0s)
-    advanceAndTick(synth, clock, 3.2);
+    // Finish Pass 1 (2 chords * 2.0s = 4.0s)
+    advanceAndTick(synth, clock, 4.15);
     expect(controller.getSnapshot().phase).toBe('repeat_pause');
 
     // Finish repeat pause (1.0s) -> Pass 2
@@ -346,29 +346,29 @@ describe('SessionController state machine & scheduler', () => {
     expect(controller.getSnapshot().phase).toBe('question_playing');
     expect(controller.getSnapshot().currentPass).toBe(2);
 
-    // Finish Pass 2 -> pre_answer_pause -> answer_revealing
-    advanceAndTick(synth, clock, 3.8);
+    // Finish Pass 2 (4.0s) -> pre_answer_pause (0.6s) -> answer_revealing
+    advanceAndTick(synth, clock, 4.75);
     expect(controller.getSnapshot().phase).toBe('answer_revealing');
     expect(synth.ducked).toBe(true);
     expect(controller.getSnapshot().revealedCount).toBe(1);
 
-    // Finish 1st answer chord speech & grid wait
+    // Finish 1st answer chord speech & 2.0s grid wait
     announcer.finishLatest();
-    advanceAndTick(synth, clock, 1.6);
+    advanceAndTick(synth, clock, 2.0);
     expect(controller.getSnapshot().revealedCount).toBe(2);
 
-    // Finish 2nd answer chord speech & grid wait -> default final replay pass
+    // Finish 2nd answer chord speech & 2.0s grid wait -> default final replay pass
     announcer.finishLatest();
-    advanceAndTick(synth, clock, 1.15);
+    advanceAndTick(synth, clock, 1.85);
     expect(controller.getSnapshot().phase).toBe('post_answer_pause');
     expect(synth.ducked).toBe(false);
 
-    // Post-answer pause (0.55s) -> post_answer_replay (2 chords * 1.5s = 3.0s) -> next_question_pause
+    // Post-answer pause (0.55s) -> post_answer_replay (2 chords * 2.0s = 4.0s) -> next_question_pause
     advanceAndTick(synth, clock, 0.6);
     expect(controller.getSnapshot().phase).toBe('post_answer_replay');
     expect(controller.getSnapshot().revealedCount).toBe(2);
 
-    advanceAndTick(synth, clock, 3.2);
+    advanceAndTick(synth, clock, 4.2);
     expect(controller.getSnapshot().phase).toBe('next_question_pause');
 
     // Auto-advance to Question 2 directly (no orientation on fixed key)
@@ -381,7 +381,7 @@ describe('SessionController state machine & scheduler', () => {
   it('locks Answer Reveal to the tempo grid when speech finishes early', () => {
     const { controller, synth, announcer, clock } = createHarness({
       allowedChords: ['I', 'IV'],
-      bpm: 80, // 1.5s slot
+      bpm: 120, // 4 beats = 2.0s slot
       progressionLength: 2,
       questionRepeats: 1,
       keyOrientation: 'none',
@@ -396,18 +396,18 @@ describe('SessionController state machine & scheduler', () => {
     const revealChordsBefore = synth.chords.length;
     const firstRevealStart = synth.chords[revealChordsBefore - 1].startTime;
 
-    // Speech finishes early at 0.4s (< 1.5s grid)
+    // Speech finishes early at 0.4s (< 2.0s grid)
     synth.currentTime += 0.4;
     announcer.finishLatest();
     clock.tick();
 
-    // Should still be on chord 1 at t = 1.4s
-    synth.currentTime = firstRevealStart + 1.4;
+    // Should still be on chord 1 at t = 1.9s
+    synth.currentTime = firstRevealStart + 1.9;
     clock.tick();
     expect(controller.getSnapshot().revealedCount).toBe(1);
 
-    // Advances cleanly once t >= firstRevealStart + 1.5s
-    synth.currentTime = firstRevealStart + 1.55;
+    // Advances cleanly once t >= firstRevealStart + 2.0s
+    synth.currentTime = firstRevealStart + 2.05;
     clock.tick();
     expect(controller.getSnapshot().revealedCount).toBe(2);
     expect(synth.chords[revealChordsBefore - 1].releasedAt).toBeCloseTo(
@@ -419,7 +419,7 @@ describe('SessionController state machine & scheduler', () => {
   it('extends chord sustain until long speech completes without clipping', () => {
     const { controller, synth, announcer, clock } = createHarness({
       allowedChords: ['viihalfdim7'],
-      bpm: 120, // 1.0s slot
+      bpm: 240, // 4 beats = 1.0s slot
       progressionLength: 2,
       questionRepeats: 1,
       keyOrientation: 'none',
@@ -469,7 +469,7 @@ describe('SessionController state machine & scheduler', () => {
 
     const { controller, synth, announcer, clock } = createHarness({
       allowedChords: ['I', 'IV'],
-      bpm: 120, // 1.0s per chord
+      bpm: 240, // 4 beats = 1.0s per chord
       progressionLength: 2,
       questionRepeats: 1,
       keyOrientation: 'none',
@@ -491,7 +491,7 @@ describe('SessionController state machine & scheduler', () => {
     // Explicitly disabling final replay skips straight to next_question_pause
     const noReplay = createHarness({
       allowedChords: ['I', 'IV'],
-      bpm: 120,
+      bpm: 240,
       progressionLength: 2,
       questionRepeats: 1,
       keyOrientation: 'none',

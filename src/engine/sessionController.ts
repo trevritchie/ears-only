@@ -217,7 +217,7 @@ export class SessionController {
   }
 
   private getSlotDurationSec(): number {
-    return (60 / this.settings.bpm) * 2;
+    return (60 / this.settings.bpm) * 4;
   }
 
   private resolveDronePitch(key: PitchClass): PitchClass {

@@ -27,9 +27,9 @@ describe('Ears Only App UI', () => {
     expect(screen.queryByLabelText(/pause between repeats/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/speech rate/i)).not.toBeInTheDocument();
 
-    // Core defaults visible on primary screen
-    expect(screen.getByText('80 BPM')).toBeInTheDocument();
-    expect(screen.getByText('1.5s per chord')).toBeInTheDocument();
+    // Core defaults visible on primary screen (120 BPM, 4 beats = 2.0s per chord)
+    expect(screen.getByText('120 BPM')).toBeInTheDocument();
+    expect(screen.getByText('2.0s per chord')).toBeInTheDocument();
 
     // Progression length supports 2..8 with 4 selected by default
     const lengthGroup = screen.getByRole('group', { name: /progression length/i });

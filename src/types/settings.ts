@@ -79,7 +79,7 @@ export const VOLUME_CALIBRATION_VERSION = 2;
 
 export const DEFAULT_SETTINGS: SessionSettings = {
   allowedChords: ['I', 'IV', 'V', 'vi'],
-  bpm: 80,
+  bpm: 120,
   progressionLength: 4,
   questionRepeats: 2,
   playChordsBehindAnswer: true,
@@ -190,7 +190,7 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
 
   return {
     allowedChords,
-    bpm: clampInt(obj.bpm, 40, 160, DEFAULT_SETTINGS.bpm),
+    bpm: clampInt(obj.bpm, 60, 240, DEFAULT_SETTINGS.bpm),
     progressionLength: clampInt(
       obj.progressionLength,
       2,

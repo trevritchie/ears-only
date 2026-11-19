@@ -11,7 +11,7 @@ const LENGTH_OPTIONS = [2, 3, 4, 5, 6, 7, 8] as const;
 const REPEAT_OPTIONS = [1, 2, 3, 4, 5] as const;
 
 export function CoreControls({ settings, onUpdate }: CoreControlsProps) {
-  const chordDurationSec = (60 / settings.bpm) * 2;
+  const chordDurationSec = (60 / settings.bpm) * 4;
   const formattedSec = Number.isInteger(chordDurationSec)
     ? chordDurationSec.toFixed(1)
     : chordDurationSec.toFixed(2).replace(/0$/, '');
@@ -39,8 +39,8 @@ export function CoreControls({ settings, onUpdate }: CoreControlsProps) {
         <input
           id="bpm-slider"
           type="range"
-          min={40}
-          max={160}
+          min={60}
+          max={240}
           step={2}
           value={settings.bpm}
           onChange={(e) => onUpdate({ bpm: Number(e.target.value) })}

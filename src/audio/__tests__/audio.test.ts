@@ -288,6 +288,7 @@ describe('meditative instruments & ambience', () => {
     expect(fresh.playChordsBehindAnswer).toBe(true);
     expect(fresh.playFinalReplayAfterAnswer).toBe(true);
     expect(fresh.progressionLength).toBe(4);
+    expect(fresh.bpm).toBe(120);
     expect(fresh.chordVolume).toBe(0.8);
     expect(fresh.voiceVolume).toBe(0.8);
 
@@ -295,12 +296,12 @@ describe('meditative instruments & ambience', () => {
     window.localStorage.clear();
     window.localStorage.setItem(
       LEGACY_SETTINGS_STORAGE_KEY,
-      JSON.stringify({ timbre: 'felt-piano', chordVolume: 0.5, bpm: 120 }),
+      JSON.stringify({ timbre: 'felt-piano', chordVolume: 0.5, bpm: 90 }),
     );
     const migrated = loadSettings();
     expect(migrated.timbre).toBe('velvet-pad');
     expect(migrated.chordVolume).toBe(0.8);
-    expect(migrated.bpm).toBe(80);
+    expect(migrated.bpm).toBe(120);
     expect(window.localStorage.getItem(LEGACY_SETTINGS_STORAGE_KEY)).toBeNull();
 
     // New v2 settings persist normally after reset
@@ -309,6 +310,10 @@ describe('meditative instruments & ambience', () => {
     expect(reloaded.bpm).toBe(96);
     expect(reloaded.timbre).toBe('felt-piano');
     window.localStorage.clear();
+
+    expect(sanitizeSettings({ bpm: 40 }).bpm).toBe(60);
+    expect(sanitizeSettings({ bpm: 240 }).bpm).toBe(240);
+    expect(sanitizeSettings({ bpm: 300 }).bpm).toBe(240);
 
     expect(sanitizeSettings({ announceTriadQuality: true }).announceTriadQuality).toBe(true);
     expect(sanitizeSettings({ progressionLength: 8 }).progressionLength).toBe(8);
