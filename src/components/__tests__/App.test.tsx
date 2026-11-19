@@ -87,8 +87,11 @@ describe('Ears Only App UI', () => {
       screen.getByRole('button', { name: /satb choir.*ooh & ahh voices/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /electric piano/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /electric piano/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /soft pad/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /warm room/i }),
     ).toHaveAttribute('aria-pressed', 'true');
@@ -199,7 +202,7 @@ describe('Ears Only App UI', () => {
     await user.click(screen.getByRole('button', { name: /auto-rotate/i }));
 
     // Primary Sound & Mix interactions (no need to expand Advanced!)
-    await user.click(screen.getByRole('button', { name: /soft pad/i }));
+    await user.click(screen.getByRole('button', { name: /warm rhodes/i }));
     await user.click(screen.getByRole('button', { name: /lush hall/i }));
     await user.click(screen.getByRole('button', { name: /^random$/i }));
     await user.click(screen.getByRole('switch', { name: /^enable drone$/i }));
@@ -238,7 +241,7 @@ describe('Ears Only App UI', () => {
     expect(saved.playFinalReplayAfterAnswer).toBe(false);
     expect(saved.progressionLength).toBe(8);
     expect(saved.halfDimNaming).toBe('minor-seven-flat-five');
-    expect(saved.timbre).toBe('soft-pad');
+    expect(saved.timbre).toBe('warm-rhodes');
     expect(saved.ambience).toBe('lush-hall');
     expect(saved.voicePanning).toBe(true);
     expect(saved.voicePanningMode).toBe('random');

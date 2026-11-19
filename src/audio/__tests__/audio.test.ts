@@ -331,8 +331,8 @@ describe('perceptual volume calibration', () => {
 });
 
 describe('meditative instruments & ambience', () => {
-  it('exposes all 7 instrument presets with Velvet Pad first, SATB Choir included, and classic voices preserved', () => {
-    expect(INSTRUMENT_PRESETS).toHaveLength(7);
+  it('exposes all 5 meditative instrument presets with Velvet Pad first and SATB Choir included', () => {
+    expect(INSTRUMENT_PRESETS).toHaveLength(5);
     const ids = INSTRUMENT_PRESETS.map((p) => p.id);
     expect(ids).toEqual([
       'velvet-pad',
@@ -340,8 +340,6 @@ describe('meditative instruments & ambience', () => {
       'warm-rhodes',
       'soft-vibes',
       'satb-choir',
-      'electric-piano',
-      'soft-pad',
     ]);
     for (const preset of INSTRUMENT_PRESETS) {
       expect(preset.defaultReleaseSec).toBeGreaterThan(0);
@@ -466,10 +464,11 @@ describe('meditative instruments & ambience', () => {
     expect(sanitizeSettings({ progressionLength: 1 }).progressionLength).toBe(2);
     expect(sanitizeSettings({ progressionLength: 12 }).progressionLength).toBe(8);
 
+    // Removed legacy classic timbres fall back cleanly to velvet-pad default
     expect(sanitizeSettings({ timbre: 'electric-piano' }).timbre).toBe(
-      'electric-piano',
+      'velvet-pad',
     );
-    expect(sanitizeSettings({ timbre: 'soft-pad' }).timbre).toBe('soft-pad');
+    expect(sanitizeSettings({ timbre: 'soft-pad' }).timbre).toBe('velvet-pad');
     expect(sanitizeSettings({ ambience: 'lush-hall' }).ambience).toBe(
       'lush-hall',
     );

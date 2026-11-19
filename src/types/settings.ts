@@ -17,9 +17,7 @@ export type TimbreId =
   | 'warm-rhodes'
   | 'velvet-pad'
   | 'soft-vibes'
-  | 'satb-choir'
-  | 'electric-piano'
-  | 'soft-pad';
+  | 'satb-choir';
 export type AmbienceMode = 'dry' | 'warm-room' | 'lush-hall';
 export type VoicePanningMode = 'left-to-right' | 'satb' | 'random';
 export type KeyMode = 'fixed' | 'auto-rotate';
@@ -153,8 +151,6 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
     'velvet-pad',
     'soft-vibes',
     'satb-choir',
-    'electric-piano',
-    'soft-pad',
   ];
   const timbre: TimbreId =
     typeof obj.timbre === 'string' &&
