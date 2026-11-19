@@ -18,6 +18,7 @@ import {
 } from '../music/chords';
 import {
   generateProgression,
+  getCandidateResolutionTargets,
   getOrientationChords,
   pickRandomKey,
   pickRandomNextKey,
@@ -166,6 +167,7 @@ export class SessionController {
     this.settings = {
       ...initialSettings,
       allowedChords: [...initialSettings.allowedChords],
+      allowedSecondaryDominants: [...initialSettings.allowedSecondaryDominants],
     };
     this.activeKey = initialSettings.fixedKey;
 
@@ -291,17 +293,32 @@ export class SessionController {
   }
 
   private getPreloadPhrases(): string[] {
-    const phrases: string[] = [getSpokenKeyPhrase(this.activeKey)];
-    for (const chordId of this.settings.allowedChords) {
-      phrases.push(
+    const phrases = new Set<string>([getSpokenKeyPhrase(this.activeKey)]);
+    const addChord = (chordId: ChordId) => {
+      phrases.add(
         getSpokenChordPhrase(
           chordId,
           this.settings.halfDimNaming,
           this.settings.announceTriadQuality,
         ).text,
       );
+    };
+
+    for (const chordId of this.settings.allowedChords) {
+      addChord(chordId);
     }
-    return phrases;
+    if (this.settings.secondaryDominantsEnabled) {
+      for (const secDom of this.settings.allowedSecondaryDominants) {
+        addChord(secDom);
+        for (const target of getCandidateResolutionTargets(
+          secDom,
+          this.settings.allowedChords,
+        )) {
+          addChord(target);
+        }
+      }
+    }
+    return Array.from(phrases);
   }
 
   start(): void {
@@ -538,6 +555,7 @@ export class SessionController {
     this.settings = {
       ...next,
       allowedChords: [...next.allowedChords],
+      allowedSecondaryDominants: [...next.allowedSecondaryDominants],
     };
     this.announcer.setMode?.(next.voiceSource);
     this.synth.setChordVolume(next.chordVolume);
@@ -625,11 +643,15 @@ export class SessionController {
   }
 
   private generateQuestionData(): void {
+    const activeSecondaryDominants = this.settings.secondaryDominantsEnabled
+      ? this.settings.allowedSecondaryDominants
+      : [];
     this.progression = generateProgression(
       this.settings.allowedChords,
       this.settings.progressionLength,
       this.progression.length > 0 ? this.progression : undefined,
       this.rng,
+      activeSecondaryDominants,
     );
     this.voicedProgression = this.voicingStrategy.voiceSequence(
       this.progression,

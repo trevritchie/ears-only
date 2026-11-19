@@ -10,7 +10,19 @@ export type SeventhId =
   | 'vi7'
   | 'viihalfdim7';
 
-export type ChordId = TriadId | SeventhId;
+export type DiatonicChordId = TriadId | SeventhId;
+
+export type SecondaryTriadId = 'V/ii' | 'V/iii' | 'V/V' | 'V/vi';
+export type SecondarySeventhId =
+  | 'V7/ii'
+  | 'V7/iii'
+  | 'V7/IV'
+  | 'V7/V'
+  | 'V7/vi';
+
+export type SecondaryDominantId = SecondaryTriadId | SecondarySeventhId;
+
+export type ChordId = DiatonicChordId | SecondaryDominantId;
 
 export type TimbreId =
   | 'velvet-pad'
@@ -33,7 +45,9 @@ export type HalfDimNaming = 'half-diminished' | 'minor-seven-flat-five';
 export type VoiceSource = 'recorded' | 'speech-synthesis';
 
 export interface SessionSettings {
-  allowedChords: ChordId[];
+  allowedChords: DiatonicChordId[];
+  secondaryDominantsEnabled: boolean;
+  allowedSecondaryDominants: SecondaryDominantId[];
   bpm: number;
   progressionLength: number;
   questionRepeats: number;
@@ -61,7 +75,7 @@ export interface SessionSettings {
   voiceSource: VoiceSource;
 }
 
-export const VALID_CHORD_IDS: readonly ChordId[] = [
+export const VALID_DIATONIC_CHORD_IDS: readonly DiatonicChordId[] = [
   'I',
   'ii',
   'iii',
@@ -78,7 +92,27 @@ export const VALID_CHORD_IDS: readonly ChordId[] = [
   'viihalfdim7',
 ];
 
-const VALID_CHORD_SET = new Set<string>(VALID_CHORD_IDS);
+export const VALID_SECONDARY_DOMINANT_IDS: readonly SecondaryDominantId[] = [
+  'V/ii',
+  'V/iii',
+  'V/V',
+  'V/vi',
+  'V7/ii',
+  'V7/iii',
+  'V7/IV',
+  'V7/V',
+  'V7/vi',
+];
+
+export const VALID_CHORD_IDS: readonly ChordId[] = [
+  ...VALID_DIATONIC_CHORD_IDS,
+  ...VALID_SECONDARY_DOMINANT_IDS,
+];
+
+const VALID_DIATONIC_CHORD_SET = new Set<string>(VALID_DIATONIC_CHORD_IDS);
+const VALID_SECONDARY_DOMINANT_SET = new Set<string>(
+  VALID_SECONDARY_DOMINANT_IDS,
+);
 
 export const LEGACY_SETTINGS_STORAGE_KEY = 'ears-only:settings:v1';
 export const SETTINGS_STORAGE_KEY = 'ears-only:settings:v2';
@@ -86,6 +120,8 @@ export const VOLUME_CALIBRATION_VERSION = 2;
 
 export const DEFAULT_SETTINGS: SessionSettings = {
   allowedChords: ['I', 'IV', 'V', 'vi'],
+  secondaryDominantsEnabled: false,
+  allowedSecondaryDominants: ['V7/ii', 'V7/iii', 'V7/IV', 'V7/V', 'V7/vi'],
   bpm: 120,
   progressionLength: 4,
   questionRepeats: 2,
@@ -131,22 +167,44 @@ function sanitizePitchClass(value: unknown, fallback: PitchClass): PitchClass {
 
 export function sanitizeSettings(raw: unknown): SessionSettings {
   if (!raw || typeof raw !== 'object') {
-    return { ...DEFAULT_SETTINGS, allowedChords: [...DEFAULT_SETTINGS.allowedChords] };
+    return {
+      ...DEFAULT_SETTINGS,
+      allowedChords: [...DEFAULT_SETTINGS.allowedChords],
+      allowedSecondaryDominants: [...DEFAULT_SETTINGS.allowedSecondaryDominants],
+    };
   }
 
   const obj = raw as Record<string, unknown>;
 
-  let allowedChords: ChordId[] = [...DEFAULT_SETTINGS.allowedChords];
+  let allowedChords: DiatonicChordId[] = [...DEFAULT_SETTINGS.allowedChords];
   if (Array.isArray(obj.allowedChords)) {
     const deduped = Array.from(
       new Set(
         obj.allowedChords.filter(
-          (item): item is ChordId => typeof item === 'string' && VALID_CHORD_SET.has(item),
+          (item): item is DiatonicChordId =>
+            typeof item === 'string' && VALID_DIATONIC_CHORD_SET.has(item),
         ),
       ),
     );
     if (deduped.length > 0) {
       allowedChords = deduped;
+    }
+  }
+
+  let allowedSecondaryDominants: SecondaryDominantId[] = [
+    ...DEFAULT_SETTINGS.allowedSecondaryDominants,
+  ];
+  if (Array.isArray(obj.allowedSecondaryDominants)) {
+    const deduped = Array.from(
+      new Set(
+        obj.allowedSecondaryDominants.filter(
+          (item): item is SecondaryDominantId =>
+            typeof item === 'string' && VALID_SECONDARY_DOMINANT_SET.has(item),
+        ),
+      ),
+    );
+    if (deduped.length > 0) {
+      allowedSecondaryDominants = deduped;
     }
   }
 
@@ -210,6 +268,11 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
 
   return {
     allowedChords,
+    secondaryDominantsEnabled:
+      typeof obj.secondaryDominantsEnabled === 'boolean'
+        ? obj.secondaryDominantsEnabled
+        : DEFAULT_SETTINGS.secondaryDominantsEnabled,
+    allowedSecondaryDominants,
     bpm: clampInt(obj.bpm, 60, 240, DEFAULT_SETTINGS.bpm),
     progressionLength: clampInt(
       obj.progressionLength,

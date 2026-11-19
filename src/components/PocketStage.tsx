@@ -1,4 +1,4 @@
-import { Lock, VolumeX } from 'lucide-react';
+import { VolumeX } from 'lucide-react';
 import type { SessionSnapshot } from '../engine/sessionController';
 import { CHORD_DEFS, getMajorKeyInfo } from '../music/chords';
 import type { SessionSettings } from '../types/settings';
@@ -82,23 +82,6 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
               Q{snapshot.questionNumber}
             </span>
           )}
-          {snapshot.isRunning && (
-            <span
-              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs ${
-                snapshot.wakeLockActive
-                  ? 'border-[#4FB3A4]/40 bg-[#4FB3A4]/15 text-[#4FB3A4]'
-                  : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE]'
-              }`}
-              title={
-                snapshot.wakeLockActive
-                  ? 'Screen wake lock active'
-                  : 'Pocket audio active'
-              }
-            >
-              <Lock className="h-3 w-3" aria-hidden="true" />
-              <span>{snapshot.wakeLockActive ? 'Awake' : 'Pocket'}</span>
-            </span>
-          )}
         </div>
       </div>
 
@@ -109,8 +92,14 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
         </p>
         {!snapshot.isRunning && (
           <span className="text-xs text-[#9CA3AE] tabular-nums">
-            {settings.allowedChords.length} chord
-            {settings.allowedChords.length === 1 ? '' : 's'} · {settings.bpm} BPM
+            {(() => {
+              const totalChords =
+                settings.allowedChords.length +
+                (settings.secondaryDominantsEnabled
+                  ? settings.allowedSecondaryDominants.length
+                  : 0);
+              return `${totalChords} chord${totalChords === 1 ? '' : 's'} · ${settings.bpm} BPM`;
+            })()}
           </span>
         )}
       </div>
@@ -167,8 +156,14 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
                 >
                   {isRevealed ? (
                     <span
-                      className={`font-roman ${
-                        isTwoRowStage ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'
+                      className={`px-1 whitespace-nowrap font-roman ${
+                        CHORD_DEFS[chordId].symbol.length >= 5
+                          ? isTwoRowStage
+                            ? 'text-sm sm:text-base'
+                            : 'text-base sm:text-xl'
+                          : isTwoRowStage
+                            ? 'text-lg sm:text-xl'
+                            : 'text-xl sm:text-2xl'
                       } font-semibold tracking-tight`}
                     >
                       {CHORD_DEFS[chordId].symbol}

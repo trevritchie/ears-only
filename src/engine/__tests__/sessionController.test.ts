@@ -868,4 +868,38 @@ describe('SessionController state machine & scheduler', () => {
     const q2FirstChord = noReplay.synth.chords[noReplay.synth.chords.length - 1];
     expect(q2FirstChord.duckedWhenStarted).toBe(false);
   });
+
+  it('excludes secondary dominants when disabled and announces strictly resolved secondary dominants when enabled', () => {
+    // Disabled by default: even with allowedSecondaryDominants populated, never emitted
+    const disabled = createHarness(
+      {
+        allowedChords: ['I', 'V'],
+        secondaryDominantsEnabled: false,
+        allowedSecondaryDominants: ['V7/V'],
+        progressionLength: 2,
+        questionRepeats: 1,
+        keyOrientation: 'none',
+      },
+      [0.01, 0.01, 0.01, 0.01],
+    );
+    disabled.controller.start();
+    expect(disabled.controller.getSnapshot().progression).not.toContain('V7/V');
+
+    // Enabled: rng=0.01 triggers V7/V -> V and speaks "Five seven of five"
+    const enabled = createHarness(
+      {
+        allowedChords: ['I', 'V'],
+        secondaryDominantsEnabled: true,
+        allowedSecondaryDominants: ['V7/V'],
+        progressionLength: 2,
+        questionRepeats: 1,
+        keyOrientation: 'none',
+      },
+      [0.01, 0.01, 0.01, 0.01],
+    );
+    enabled.controller.start();
+    expect(enabled.controller.getSnapshot().progression).toEqual(['V7/V', 'V']);
+    enabled.controller.skipToAnswer();
+    expect(enabled.announcer.spoken[0].text).toBe('Five seven of five');
+  });
 });

@@ -146,6 +146,20 @@ describe('Ears Only App UI', () => {
     expect(
       screen.getByRole('switch', { name: /speak triad qualities/i }),
     ).toHaveAttribute('aria-checked', 'false');
+
+    // Secondary dominants toggle defaults OFF with chord buttons hidden
+    expect(
+      screen.getByRole('switch', { name: /secondary dominants/i }),
+    ).toHaveAttribute('aria-checked', 'false');
+    expect(
+      screen.queryByRole('button', { name: /secondary dominant triad V\/ii \(/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /secondary dominant seventh V7\/IV/i }),
+    ).not.toBeInTheDocument();
+
+    // Awake/Pocket lock badge removed from stage header
+    expect(screen.queryByText(/^awake$/i)).not.toBeInTheDocument();
   });
 
   it('toggles chords, applies quick-select presets, and prevents deselecting the final chord', async () => {
@@ -240,6 +254,27 @@ describe('Ears Only App UI', () => {
       screen.getByText(/Seven minor seven flat five/i),
     ).toBeInTheDocument();
 
+    // Enable Secondary dominants, select All 9, and toggle V/ii off
+    await user.click(
+      screen.getByRole('switch', { name: /secondary dominants/i }),
+    );
+    expect(
+      screen.getByRole('button', { name: /secondary dominant triad V\/ii \(/i }),
+    ).toHaveAttribute('aria-pressed', 'false');
+    expect(
+      screen.getByRole('button', { name: /secondary dominant seventh V7\/IV \(/i }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'All 9' }));
+    expect(
+      screen.getByRole('button', { name: /secondary dominant triad V\/ii \(/i }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await user.click(
+      screen.getByRole('button', { name: /secondary dominant triad V\/ii \(/i }),
+    );
+    expect(
+      screen.getByRole('button', { name: /secondary dominant triad V\/ii \(/i }),
+    ).toHaveAttribute('aria-pressed', 'false');
+
     expect(
       screen.getByRole('button', { name: /built-in \(pocket\)/i }),
     ).toHaveAttribute('aria-pressed', 'true');
@@ -269,5 +304,8 @@ describe('Ears Only App UI', () => {
     expect(saved.voiceVolume).toBe(0.8);
     expect(saved.droneVolume).toBe(0.5);
     expect(saved.voiceSource).toBe('speech-synthesis');
+    expect(saved.secondaryDominantsEnabled).toBe(true);
+    expect(saved.allowedSecondaryDominants).toHaveLength(8);
+    expect(saved.allowedSecondaryDominants).not.toContain('V/ii');
   });
 });

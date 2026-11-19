@@ -35,9 +35,17 @@ export function App() {
 
       <ChordSelector
         allowedChords={settings.allowedChords}
+        secondaryDominantsEnabled={settings.secondaryDominantsEnabled}
+        allowedSecondaryDominants={settings.allowedSecondaryDominants}
         announceTriadQuality={settings.announceTriadQuality}
         playChordsBehindAnswer={settings.playChordsBehindAnswer}
         onChange={(allowedChords) => updateSettings({ allowedChords })}
+        onToggleSecondaryDominants={(secondaryDominantsEnabled) =>
+          updateSettings({ secondaryDominantsEnabled })
+        }
+        onChangeSecondaryDominants={(allowedSecondaryDominants) =>
+          updateSettings({ allowedSecondaryDominants })
+        }
         onToggleTriadQuality={(announceTriadQuality) =>
           updateSettings({ announceTriadQuality })
         }

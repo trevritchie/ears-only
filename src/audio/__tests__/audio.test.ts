@@ -45,7 +45,7 @@ import {
 
 describe('voiceClips mapping', () => {
   it('maps every key and chord spoken phrase to an mp3 URL', () => {
-    expect(ALL_VOICE_CLIP_TEXTS).toHaveLength(34);
+    expect(ALL_VOICE_CLIP_TEXTS).toHaveLength(43);
     for (const phrase of ALL_VOICE_CLIP_TEXTS) {
       const url = getVoiceClipUrl(phrase);
       expect(url).toMatch(/voice\/.*\.mp3(\?v=\d+)?$/);

@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALL_CHORD_IDS,
+  ALL_SECONDARY_DOMINANT_IDS,
   CHORD_DEFS,
+  DIATONIC_CHORD_IDS,
   getMajorScalePitchClasses,
   getScaleDegreePitchClass,
   getSpokenChordPhrase,
+  isSecondaryDominantId,
   MAJOR_KEYS,
+  SECONDARY_SEVENTH_IDS,
+  SECONDARY_TRIAD_IDS,
 } from '../chords';
 import {
   generateProgression,
@@ -20,7 +25,7 @@ import {
   matchUpperVoicePans,
 } from '../panning';
 import { RootBassVoiceLedStrategy } from '../voicing';
-import type { ChordId, PitchClass } from '../../types/settings';
+import type { ChordId, DiatonicChordId, PitchClass } from '../../types/settings';
 
 function upperMotionDistance(
   a: readonly [number, number, number],
@@ -52,10 +57,10 @@ function naiveRootPositionDistance(
 }
 
 describe('music theory & chord definitions', () => {
-  it('places all 14 chords strictly inside the major scale across all 12 keys', () => {
+  it('places all 14 diatonic chords strictly inside the major scale across all 12 keys', () => {
     for (const keyInfo of MAJOR_KEYS) {
       const scale = getMajorScalePitchClasses(keyInfo.pitchClass);
-      for (const chordId of ALL_CHORD_IDS) {
+      for (const chordId of DIATONIC_CHORD_IDS) {
         const def = CHORD_DEFS[chordId];
         const rootPC = (keyInfo.pitchClass + def.rootOffset) % 12;
         for (const interval of def.intervals) {
@@ -64,6 +69,46 @@ describe('music theory & chord definitions', () => {
         }
       }
     }
+  });
+
+  it('defines all 9 secondary dominants a fifth above their target with chromatic tones and concise spoken labels', () => {
+    expect(SECONDARY_TRIAD_IDS).toEqual(['V/ii', 'V/iii', 'V/V', 'V/vi']);
+    expect(SECONDARY_SEVENTH_IDS).toEqual([
+      'V7/ii',
+      'V7/iii',
+      'V7/IV',
+      'V7/V',
+      'V7/vi',
+    ]);
+
+    for (const keyInfo of MAJOR_KEYS) {
+      const scale = getMajorScalePitchClasses(keyInfo.pitchClass);
+      for (const secId of ALL_SECONDARY_DOMINANT_IDS) {
+        const def = CHORD_DEFS[secId];
+        expect(def.resolvesTo).toBeDefined();
+        const targetRootOffset = CHORD_DEFS[def.resolvesTo![0]].rootOffset;
+        // Root must be a perfect fifth (+7 semitones) above its target chord
+        expect(def.rootOffset).toBe((targetRootOffset + 7) % 12);
+
+        const rootPC = (keyInfo.pitchClass + def.rootOffset) % 12;
+        const chordPCs = def.intervals.map((i) => (rootPC + i) % 12);
+        // Every secondary dominant introduces at least one chromatic (out-of-key) tone
+        expect(chordPCs.some((pc) => !scale.has(pc))).toBe(true);
+      }
+    }
+
+    expect(getSpokenChordPhrase('V/ii', 'half-diminished').text).toBe(
+      'Five of two',
+    );
+    expect(getSpokenChordPhrase('V/V', 'half-diminished', true).text).toBe(
+      'Five of five',
+    );
+    expect(getSpokenChordPhrase('V7/IV', 'half-diminished').text).toBe(
+      'Five seven of four',
+    );
+    expect(getSpokenChordPhrase('V7/vi', 'half-diminished', true).text).toBe(
+      'Five seven of six',
+    );
   });
 
   it('omits triad quality words by default and announces major/minor/diminished when enabled while keeping sevenths unchanged', () => {
@@ -190,7 +235,7 @@ describe('RootBassVoiceLedStrategy', () => {
 
 describe('progression & key generators', () => {
   it('avoids consecutive duplicate chords when pool has >= 2 chords (up to 8-chord progressions)', () => {
-    const pool: ChordId[] = ['I', 'IV', 'V', 'vi'];
+    const pool: DiatonicChordId[] = ['I', 'IV', 'V', 'vi'];
     for (const len of [4, 5, 8]) {
       for (let run = 0; run < 15; run++) {
         const seq = generateProgression(pool, len);
@@ -203,6 +248,49 @@ describe('progression & key generators', () => {
         }
       }
     }
+  });
+
+  it('strictly resolves secondary dominants to their target chord and never places them last', () => {
+    const diatonicPool: DiatonicChordId[] = ['I', 'IV', 'V', 'vi'];
+    let secDomSeen = 0;
+
+    for (const len of [2, 3, 4, 6, 8]) {
+      for (let run = 0; run < 30; run++) {
+        const seq = generateProgression(
+          diatonicPool,
+          len,
+          undefined,
+          Math.random,
+          ALL_SECONDARY_DOMINANT_IDS,
+        );
+        expect(seq).toHaveLength(len);
+        // Never ends on a secondary dominant
+        expect(isSecondaryDominantId(seq[seq.length - 1])).toBe(false);
+
+        for (let i = 0; i < seq.length; i++) {
+          if (i > 0) {
+            expect(seq[i]).not.toBe(seq[i - 1]);
+          }
+          if (isSecondaryDominantId(seq[i])) {
+            secDomSeen++;
+            const expectedTargets = CHORD_DEFS[seq[i]].resolvesTo!;
+            expect(expectedTargets).toContain(seq[i + 1]);
+          }
+        }
+      }
+    }
+
+    expect(secDomSeen).toBeGreaterThan(20);
+
+    // When diatonic pool is sevenths-only and target isn't checked, resolves to seventh target
+    const seventhFallbackSeq = generateProgression(
+      ['Imaj7', 'IVmaj7'],
+      2,
+      undefined,
+      () => 0.05,
+      ['V7/ii'],
+    );
+    expect(seventhFallbackSeq).toEqual(['V7/ii', 'ii7']);
   });
 
   it('handles a 1-chord pool safely without crashing', () => {

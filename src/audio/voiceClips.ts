@@ -33,6 +33,15 @@ const PHRASE_TO_FILENAME: Record<string, string> = {
   'six minor seven': 'chord-vi7.mp3',
   'seven half diminished': 'chord-viihalfdim7.mp3',
   'seven minor seven flat five': 'chord-viihalfdim7-m7b5.mp3',
+  'five of two': 'chord-V-of-ii.mp3',
+  'five of three': 'chord-V-of-iii.mp3',
+  'five of five': 'chord-V-of-V.mp3',
+  'five of six': 'chord-V-of-vi.mp3',
+  'five seven of two': 'chord-V7-of-ii.mp3',
+  'five seven of three': 'chord-V7-of-iii.mp3',
+  'five seven of four': 'chord-V7-of-IV.mp3',
+  'five seven of five': 'chord-V7-of-V.mp3',
+  'five seven of six': 'chord-V7-of-vi.mp3',
 };
 
 export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
@@ -70,6 +79,15 @@ export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
   'Six minor seven',
   'Seven half diminished',
   'Seven minor seven flat five',
+  'Five of two',
+  'Five of three',
+  'Five of five',
+  'Five of six',
+  'Five seven of two',
+  'Five seven of three',
+  'Five seven of four',
+  'Five seven of five',
+  'Five seven of six',
 ];
 
 export function getVoiceClipFilename(text: string): string | null {
@@ -77,7 +95,7 @@ export function getVoiceClipFilename(text: string): string | null {
   return PHRASE_TO_FILENAME[key] ?? null;
 }
 
-export const VOICE_CLIPS_VERSION = '6';
+export const VOICE_CLIPS_VERSION = '7';
 
 export function getVoiceClipUrl(text: string): string | null {
   const filename = getVoiceClipFilename(text);

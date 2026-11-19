@@ -1,8 +1,11 @@
 import type {
   ChordId,
+  DiatonicChordId,
   KeyOrientationMode,
   PitchClass,
+  SecondaryDominantId,
 } from '../types/settings';
+import { CHORD_DEFS } from './chords';
 
 function pickRandomItem<T>(items: readonly T[], rng: () => number): T {
   const index = Math.min(items.length - 1, Math.floor(rng() * items.length));
@@ -17,11 +20,29 @@ function sequencesEqual(a: readonly ChordId[], b: readonly ChordId[]): boolean {
   return true;
 }
 
+export function getCandidateResolutionTargets(
+  secDom: SecondaryDominantId,
+  allowedChords: readonly DiatonicChordId[],
+): DiatonicChordId[] {
+  const resolvesTo = CHORD_DEFS[secDom].resolvesTo;
+  if (!resolvesTo) return [];
+  const allowedSet = new Set<DiatonicChordId>(allowedChords);
+  const enabledTargets = resolvesTo.filter((t) => allowedSet.has(t));
+  if (enabledTargets.length > 0) {
+    return enabledTargets;
+  }
+  const allSevenths =
+    allowedChords.length > 0 &&
+    allowedChords.every((c) => CHORD_DEFS[c].category === 'seventh');
+  return [allSevenths ? resolvesTo[1] : resolvesTo[0]];
+}
+
 export function generateProgression(
-  allowedChords: readonly ChordId[],
+  allowedChords: readonly DiatonicChordId[],
   length: number,
   previous?: readonly ChordId[],
   rng: () => number = Math.random,
+  secondaryDominants: readonly SecondaryDominantId[] = [],
 ): ChordId[] {
   if (allowedChords.length === 0) {
     throw new Error('At least one chord must be enabled to generate a progression.');
@@ -30,22 +51,57 @@ export function generateProgression(
     return [];
   }
 
-  const maxAttempts = allowedChords.length >= 2 && length >= 2 ? 5 : 1;
+  const hasSecDoms = secondaryDominants.length > 0 && length >= 2;
+  const secDomProb = hasSecDoms
+    ? Math.min(
+        0.35,
+        Math.max(
+          0.18,
+          secondaryDominants.length /
+            (allowedChords.length + secondaryDominants.length),
+        ),
+      )
+    : 0;
+  const maxAttempts =
+    (allowedChords.length >= 2 || hasSecDoms) && length >= 2 ? 5 : 1;
 
   let candidate: ChordId[] = [];
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     candidate = [];
-    for (let i = 0; i < length; i++) {
+    let i = 0;
+    while (i < length) {
+      const prevChord = i > 0 ? candidate[i - 1] : undefined;
+
+      // Strict resolution: secondary dominants never land on the final slot and
+      // always immediately resolve to their diatonic target chord.
+      if (hasSecDoms && i < length - 1 && rng() < secDomProb) {
+        const secPool =
+          prevChord !== undefined
+            ? secondaryDominants.filter((c) => c !== prevChord)
+            : secondaryDominants;
+        const secDom = pickRandomItem(
+          secPool.length > 0 ? secPool : secondaryDominants,
+          rng,
+        );
+        const targets = getCandidateResolutionTargets(secDom, allowedChords);
+        const target = pickRandomItem(targets, rng);
+        candidate.push(secDom, target);
+        i += 2;
+        continue;
+      }
+
       if (allowedChords.length === 1) {
         candidate.push(allowedChords[0]);
       } else {
-        const prevChord = i > 0 ? candidate[i - 1] : undefined;
         const pool =
           prevChord !== undefined
             ? allowedChords.filter((c) => c !== prevChord)
             : allowedChords;
-        candidate.push(pickRandomItem(pool, rng));
+        candidate.push(
+          pickRandomItem(pool.length > 0 ? pool : allowedChords, rng),
+        );
       }
+      i += 1;
     }
 
     if (!previous || !sequencesEqual(candidate, previous)) {

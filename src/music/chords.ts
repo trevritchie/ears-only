@@ -1,8 +1,12 @@
 import type {
   ChordId,
+  DiatonicChordId,
   HalfDimNaming,
   PitchClass,
   ScaleDegree,
+  SecondaryDominantId,
+  SecondarySeventhId,
+  SecondaryTriadId,
   SeventhId,
   TriadId,
 } from '../types/settings';
@@ -70,11 +74,45 @@ export const SEVENTH_IDS: readonly SeventhId[] = [
   'viihalfdim7',
 ];
 
-export const ALL_CHORD_IDS: readonly ChordId[] = [...TRIAD_IDS, ...SEVENTH_IDS];
+export const DIATONIC_CHORD_IDS: readonly DiatonicChordId[] = [
+  ...TRIAD_IDS,
+  ...SEVENTH_IDS,
+];
+
+export const SECONDARY_TRIAD_IDS: readonly SecondaryTriadId[] = [
+  'V/ii',
+  'V/iii',
+  'V/V',
+  'V/vi',
+];
+
+export const SECONDARY_SEVENTH_IDS: readonly SecondarySeventhId[] = [
+  'V7/ii',
+  'V7/iii',
+  'V7/IV',
+  'V7/V',
+  'V7/vi',
+];
+
+export const ALL_SECONDARY_DOMINANT_IDS: readonly SecondaryDominantId[] = [
+  ...SECONDARY_TRIAD_IDS,
+  ...SECONDARY_SEVENTH_IDS,
+];
+
+const SECONDARY_DOMINANT_SET = new Set<string>(ALL_SECONDARY_DOMINANT_IDS);
+
+export function isSecondaryDominantId(id: ChordId): id is SecondaryDominantId {
+  return SECONDARY_DOMINANT_SET.has(id);
+}
+
+export const ALL_CHORD_IDS: readonly ChordId[] = [
+  ...DIATONIC_CHORD_IDS,
+  ...ALL_SECONDARY_DOMINANT_IDS,
+];
 
 export interface ChordDefinition {
   id: ChordId;
-  category: 'triad' | 'seventh';
+  category: 'triad' | 'seventh' | 'secondary-triad' | 'secondary-seventh';
   symbol: string;
   rootOffset: number;
   intervals: readonly number[];
@@ -83,6 +121,8 @@ export interface ChordDefinition {
   estimatedSyllables: number;
   spokenQualityLabel?: string;
   estimatedQualitySyllables?: number;
+  /** Target triad and seventh chord that a secondary dominant resolves to. */
+  resolvesTo?: readonly [TriadId, SeventhId];
 }
 
 export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
@@ -240,6 +280,105 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     spokenLabel: 'Seven half diminished',
     estimatedSyllables: 6,
   },
+  'V/ii': {
+    id: 'V/ii',
+    category: 'secondary-triad',
+    symbol: 'V/ii',
+    rootOffset: 9,
+    intervals: [0, 4, 7],
+    upperIntervals: [0, 4, 7],
+    spokenLabel: 'Five of two',
+    estimatedSyllables: 3,
+    resolvesTo: ['ii', 'ii7'],
+  },
+  'V/iii': {
+    id: 'V/iii',
+    category: 'secondary-triad',
+    symbol: 'V/iii',
+    rootOffset: 11,
+    intervals: [0, 4, 7],
+    upperIntervals: [0, 4, 7],
+    spokenLabel: 'Five of three',
+    estimatedSyllables: 3,
+    resolvesTo: ['iii', 'iii7'],
+  },
+  'V/V': {
+    id: 'V/V',
+    category: 'secondary-triad',
+    symbol: 'V/V',
+    rootOffset: 2,
+    intervals: [0, 4, 7],
+    upperIntervals: [0, 4, 7],
+    spokenLabel: 'Five of five',
+    estimatedSyllables: 3,
+    resolvesTo: ['V', 'V7'],
+  },
+  'V/vi': {
+    id: 'V/vi',
+    category: 'secondary-triad',
+    symbol: 'V/vi',
+    rootOffset: 4,
+    intervals: [0, 4, 7],
+    upperIntervals: [0, 4, 7],
+    spokenLabel: 'Five of six',
+    estimatedSyllables: 3,
+    resolvesTo: ['vi', 'vi7'],
+  },
+  'V7/ii': {
+    id: 'V7/ii',
+    category: 'secondary-seventh',
+    symbol: 'V7/ii',
+    rootOffset: 9,
+    intervals: [0, 4, 7, 10],
+    upperIntervals: [4, 7, 10],
+    spokenLabel: 'Five seven of two',
+    estimatedSyllables: 5,
+    resolvesTo: ['ii', 'ii7'],
+  },
+  'V7/iii': {
+    id: 'V7/iii',
+    category: 'secondary-seventh',
+    symbol: 'V7/iii',
+    rootOffset: 11,
+    intervals: [0, 4, 7, 10],
+    upperIntervals: [4, 7, 10],
+    spokenLabel: 'Five seven of three',
+    estimatedSyllables: 5,
+    resolvesTo: ['iii', 'iii7'],
+  },
+  'V7/IV': {
+    id: 'V7/IV',
+    category: 'secondary-seventh',
+    symbol: 'V7/IV',
+    rootOffset: 0,
+    intervals: [0, 4, 7, 10],
+    upperIntervals: [4, 7, 10],
+    spokenLabel: 'Five seven of four',
+    estimatedSyllables: 5,
+    resolvesTo: ['IV', 'IVmaj7'],
+  },
+  'V7/V': {
+    id: 'V7/V',
+    category: 'secondary-seventh',
+    symbol: 'V7/V',
+    rootOffset: 2,
+    intervals: [0, 4, 7, 10],
+    upperIntervals: [4, 7, 10],
+    spokenLabel: 'Five seven of five',
+    estimatedSyllables: 5,
+    resolvesTo: ['V', 'V7'],
+  },
+  'V7/vi': {
+    id: 'V7/vi',
+    category: 'secondary-seventh',
+    symbol: 'V7/vi',
+    rootOffset: 4,
+    intervals: [0, 4, 7, 10],
+    upperIntervals: [4, 7, 10],
+    spokenLabel: 'Five seven of six',
+    estimatedSyllables: 5,
+    resolvesTo: ['vi', 'vi7'],
+  },
 };
 
 export function getSpokenChordPhrase(
@@ -269,12 +408,24 @@ export function getSpokenChordPhrase(
 export interface ChordPreset {
   id: string;
   label: string;
-  chords: readonly ChordId[];
+  chords: readonly DiatonicChordId[];
 }
 
 export const CHORD_PRESETS: readonly ChordPreset[] = [
   { id: 'basic', label: 'Basic (I IV V vi)', chords: ['I', 'IV', 'V', 'vi'] },
   { id: 'all-triads', label: 'All Triads', chords: TRIAD_IDS },
   { id: 'all-sevenths', label: 'All Sevenths', chords: SEVENTH_IDS },
-  { id: 'all', label: 'All 14', chords: ALL_CHORD_IDS },
+  { id: 'all', label: 'All 14', chords: DIATONIC_CHORD_IDS },
+];
+
+export interface SecondaryDominantPreset {
+  id: string;
+  label: string;
+  chords: readonly SecondaryDominantId[];
+}
+
+export const SECONDARY_DOMINANT_PRESETS: readonly SecondaryDominantPreset[] = [
+  { id: 'sec-triads', label: 'All Triads', chords: SECONDARY_TRIAD_IDS },
+  { id: 'sec-sevenths', label: 'All 7ths', chords: SECONDARY_SEVENTH_IDS },
+  { id: 'sec-all', label: 'All 9', chords: ALL_SECONDARY_DOMINANT_IDS },
 ];
