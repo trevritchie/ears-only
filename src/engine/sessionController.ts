@@ -24,6 +24,7 @@ import {
 import {
   computeProgressionVoicePans,
   generateRandomVoicePans,
+  getOrderedVoicePans,
 } from '../music/panning';
 import {
   defaultVoicingStrategy,
@@ -36,6 +37,7 @@ import type {
   PitchClass,
   SessionSettings,
   TimbreId,
+  VoicePanningMode,
 } from '../types/settings';
 import { HybridVoiceAnnouncer } from './hybridAnnouncer';
 import { PocketManager, type PocketController } from './pocketManager';
@@ -416,13 +418,20 @@ export class SessionController {
 
   private applyVoicePans(
     notes: ScheduledNote[],
-    pans?: readonly number[],
+    randomPans?: readonly number[],
     enabled = this.settings.voicePanning,
+    mode: VoicePanningMode = this.settings.voicePanningMode,
   ): ScheduledNote[] {
-    if (!enabled || !pans) return notes;
+    if (!enabled) {
+      return notes.map((note) => ({ ...note, pan: 0 }));
+    }
+    const targetPans =
+      mode === 'random' && randomPans
+        ? randomPans
+        : getOrderedVoicePans(notes.length);
     return notes.map((note, idx) => ({
       ...note,
-      pan: pans[idx],
+      pan: targetPans[idx] ?? 0,
     }));
   }
 
@@ -430,12 +439,15 @@ export class SessionController {
     timbre?: TimbreId,
     ambience?: AmbienceMode,
     voicePanning?: boolean,
+    voicePanningMode?: VoicePanningMode,
   ): void {
     if (this.isRunning) return;
 
     const targetTimbre = timbre ?? this.settings.timbre;
     const targetAmbience = ambience ?? this.settings.ambience;
     const targetPanning = voicePanning ?? this.settings.voicePanning;
+    const targetPanningMode =
+      voicePanningMode ?? this.settings.voicePanningMode;
 
     void this.synth.ensureContext();
     const now = this.synth.getCurrentTime();
@@ -458,10 +470,16 @@ export class SessionController {
       1.55,
       rollStepSec,
     );
-    const previewPans = targetPanning
-      ? generateRandomVoicePans(baseNotes.length, this.rng)
-      : undefined;
-    const notes = this.applyVoicePans(baseNotes, previewPans, targetPanning);
+    const previewPans =
+      targetPanning && targetPanningMode === 'random'
+        ? generateRandomVoicePans(baseNotes.length, this.rng)
+        : undefined;
+    const notes = this.applyVoicePans(
+      baseNotes,
+      previewPans,
+      targetPanning,
+      targetPanningMode,
+    );
     this.previewVoice = this.synth.playChord(notes, now + 0.025, targetTimbre);
   }
 

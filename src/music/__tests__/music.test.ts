@@ -15,6 +15,7 @@ import {
 import {
   computeProgressionVoicePans,
   generateRandomVoicePans,
+  getOrderedVoicePans,
   matchUpperVoicePans,
 } from '../panning';
 import { RootBassVoiceLedStrategy } from '../voicing';
@@ -226,8 +227,9 @@ describe('progression & key generators', () => {
   });
 });
 
-describe('voice-led random stereo panning', () => {
-  it('spreads 4 voices evenly across [-0.84, -0.28, 0.28, 0.84] and randomizes voice seat assignment', () => {
+describe('voice-led stereo panning', () => {
+  it('returns low-to-high ordered stereo pans [-0.84, -0.28, 0.28, 0.84] and randomizes seats in random mode', () => {
+    expect(getOrderedVoicePans(4)).toEqual([-0.84, -0.28, 0.28, 0.84]);
     const topVoicePositions = new Set<number>();
     for (let run = 0; run < 40; run++) {
       const pans = generateRandomVoicePans(4);

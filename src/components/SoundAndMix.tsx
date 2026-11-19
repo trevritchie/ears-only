@@ -9,6 +9,7 @@ import type {
   ScaleDegree,
   SessionSettings,
   TimbreId,
+  VoicePanningMode,
 } from '../types/settings';
 import { SwitchRow } from './SwitchRow';
 
@@ -30,6 +31,7 @@ interface SoundAndMixProps {
     timbre?: TimbreId,
     ambience?: AmbienceMode,
     voicePanning?: boolean,
+    voicePanningMode?: VoicePanningMode,
   ) => void;
 }
 
@@ -129,17 +131,70 @@ export function SoundAndMix({
         </div>
       </div>
 
-      {/* Voice panning */}
-      <SwitchRow
-        id="toggle-voice-panning"
-        label="Random voice panning"
-        description="Spreads chord notes in stereo while voices stay in place across changes"
-        checked={settings.voicePanning}
-        onChange={(checked) => {
-          onUpdate({ voicePanning: checked });
-          onPreviewSound(settings.timbre, settings.ambience, checked);
-        }}
-      />
+      {/* Stereo voice placement */}
+      <div>
+        <SwitchRow
+          id="toggle-stereo"
+          label="Stereo"
+          description={
+            settings.voicePanning
+              ? settings.voicePanningMode === 'left-to-right'
+                ? 'Spreads voices low to high from left to right'
+                : 'Random stereo seats that follow voice leading'
+              : 'Centered mono mix'
+          }
+          checked={settings.voicePanning}
+          onChange={(checked) => {
+            onUpdate({ voicePanning: checked });
+            onPreviewSound(
+              settings.timbre,
+              settings.ambience,
+              checked,
+              settings.voicePanningMode,
+            );
+          }}
+        />
+
+        {settings.voicePanning && (
+          <div
+            className="mt-2 grid grid-cols-2 gap-1.5"
+            role="group"
+            aria-label="Stereo voice placement"
+          >
+            {(
+              [
+                { id: 'left-to-right', label: 'Left to right' },
+                { id: 'random', label: 'Random' },
+              ] as const
+            ).map((option) => {
+              const active = settings.voicePanningMode === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => {
+                    onUpdate({ voicePanningMode: option.id });
+                    onPreviewSound(
+                      settings.timbre,
+                      settings.ambience,
+                      true,
+                      option.id,
+                    );
+                  }}
+                  className={`min-h-[40px] rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
+                    active
+                      ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
+                      : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Mix volumes + progressive Drone */}
       <div className="space-y-3 border-t border-[#2B323B] pt-4">

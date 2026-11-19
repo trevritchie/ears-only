@@ -20,6 +20,7 @@ export type TimbreId =
   | 'electric-piano'
   | 'soft-pad';
 export type AmbienceMode = 'dry' | 'warm-room' | 'lush-hall';
+export type VoicePanningMode = 'left-to-right' | 'random';
 export type KeyMode = 'fixed' | 'auto-rotate';
 export type KeyOrientationMode = 'cadence' | 'tonic' | 'none';
 export type ScaleDegree = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -37,6 +38,7 @@ export interface SessionSettings {
   timbre: TimbreId;
   ambience: AmbienceMode;
   voicePanning: boolean;
+  voicePanningMode: VoicePanningMode;
   chordVolume: number;
   voiceVolume: number;
   keyMode: KeyMode;
@@ -87,7 +89,8 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   playFinalReplayAfterAnswer: true,
   timbre: 'velvet-pad',
   ambience: 'warm-room',
-  voicePanning: false,
+  voicePanning: true,
+  voicePanningMode: 'left-to-right',
   chordVolume: 0.8,
   voiceVolume: 0.8,
   keyMode: 'auto-rotate',
@@ -164,6 +167,11 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       ? obj.ambience
       : DEFAULT_SETTINGS.ambience;
 
+  const voicePanningMode: VoicePanningMode =
+    obj.voicePanningMode === 'left-to-right' || obj.voicePanningMode === 'random'
+      ? obj.voicePanningMode
+      : DEFAULT_SETTINGS.voicePanningMode;
+
   const keyMode: KeyMode =
     obj.keyMode === 'auto-rotate' || obj.keyMode === 'fixed'
       ? obj.keyMode
@@ -219,6 +227,7 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       typeof obj.voicePanning === 'boolean'
         ? obj.voicePanning
         : DEFAULT_SETTINGS.voicePanning,
+    voicePanningMode,
     chordVolume: hasCalibratedVolumes
       ? clampNumber(obj.chordVolume, 0, 1, DEFAULT_SETTINGS.chordVolume)
       : DEFAULT_SETTINGS.chordVolume,

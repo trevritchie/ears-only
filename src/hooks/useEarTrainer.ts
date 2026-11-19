@@ -12,6 +12,7 @@ import {
   type AmbienceMode,
   type SessionSettings,
   type TimbreId,
+  type VoicePanningMode,
 } from '../types/settings';
 
 function createInitialSnapshot(settings: SessionSettings): SessionSnapshot {
@@ -122,8 +123,18 @@ export function useEarTrainer() {
   }, []);
 
   const previewSound = useCallback(
-    (timbre?: TimbreId, ambience?: AmbienceMode, voicePanning?: boolean) => {
-      controllerRef.current?.previewSound(timbre, ambience, voicePanning);
+    (
+      timbre?: TimbreId,
+      ambience?: AmbienceMode,
+      voicePanning?: boolean,
+      voicePanningMode?: VoicePanningMode,
+    ) => {
+      controllerRef.current?.previewSound(
+        timbre,
+        ambience,
+        voicePanning,
+        voicePanningMode,
+      );
     },
     [],
   );

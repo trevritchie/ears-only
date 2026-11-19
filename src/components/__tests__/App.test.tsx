@@ -90,8 +90,17 @@ describe('Ears Only App UI', () => {
       screen.getByRole('button', { name: /warm room/i }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect(
-      screen.getByRole('switch', { name: /random voice panning/i }),
-    ).toHaveAttribute('aria-checked', 'false');
+      screen.getByRole('switch', { name: /^stereo$/i }),
+    ).toHaveAttribute('aria-checked', 'true');
+    const stereoGroup = screen.getByRole('group', {
+      name: /stereo voice placement/i,
+    });
+    const stereoButtons = within(stereoGroup).getAllByRole('button');
+    expect(stereoButtons.map((b) => b.textContent)).toEqual([
+      'Left to right',
+      'Random',
+    ]);
+    expect(stereoButtons[0]).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByLabelText(/chords volume/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/voice volume/i)).toBeInTheDocument();
 
@@ -188,9 +197,7 @@ describe('Ears Only App UI', () => {
     // Primary Sound & Mix interactions (no need to expand Advanced!)
     await user.click(screen.getByRole('button', { name: /soft pad/i }));
     await user.click(screen.getByRole('button', { name: /lush hall/i }));
-    await user.click(
-      screen.getByRole('switch', { name: /random voice panning/i }),
-    );
+    await user.click(screen.getByRole('button', { name: /^random$/i }));
     await user.click(screen.getByRole('switch', { name: /^enable drone$/i }));
 
     // Drone sub-controls now expanded right in place
@@ -230,6 +237,7 @@ describe('Ears Only App UI', () => {
     expect(saved.timbre).toBe('soft-pad');
     expect(saved.ambience).toBe('lush-hall');
     expect(saved.voicePanning).toBe(true);
+    expect(saved.voicePanningMode).toBe('random');
     expect(saved.droneEnabled).toBe(true);
     expect(saved.droneScaleDegree).toBe(5);
     expect(saved.droneOctave).toBe(2);

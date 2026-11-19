@@ -391,6 +391,8 @@ describe('meditative instruments & ambience', () => {
     const fresh = sanitizeSettings(null);
     expect(fresh.timbre).toBe('velvet-pad');
     expect(fresh.ambience).toBe('warm-room');
+    expect(fresh.voicePanning).toBe(true);
+    expect(fresh.voicePanningMode).toBe('left-to-right');
     expect(fresh.announceTriadQuality).toBe(false);
     expect(fresh.playChordsBehindAnswer).toBe(true);
     expect(fresh.playFinalReplayAfterAnswer).toBe(true);

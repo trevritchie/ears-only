@@ -13,6 +13,20 @@ const PERMS_3: readonly [number, number, number][] = [
 ];
 
 /**
+ * Returns evenly spaced stereo pan positions from -0.84 (low/left) to +0.84
+ * (high/right), almost hard-panned on the outer two voices without 100% isolation.
+ */
+export function getOrderedVoicePans(voiceCount: number): number[] {
+  if (voiceCount <= 0) return [];
+  if (voiceCount === 1) return [0];
+
+  const step = (MAX_PAN * 2) / (voiceCount - 1);
+  return Array.from({ length: voiceCount }, (_, i) =>
+    Math.round((-MAX_PAN + i * step) * 1000) / 1000,
+  );
+}
+
+/**
  * Spreads voices evenly across the stereo field from -0.84 to +0.84 (wide,
  * almost hard pan for the outer two voices without 100% isolation), then
  * randomly shuffles which voice gets each stereo seat.
@@ -21,13 +35,7 @@ export function generateRandomVoicePans(
   voiceCount: number,
   rng: () => number = Math.random,
 ): number[] {
-  if (voiceCount <= 0) return [];
-  if (voiceCount === 1) return [0];
-
-  const step = (MAX_PAN * 2) / (voiceCount - 1);
-  const pans = Array.from({ length: voiceCount }, (_, i) =>
-    Math.round((-MAX_PAN + i * step) * 1000) / 1000,
-  );
+  const pans = getOrderedVoicePans(voiceCount);
 
   // Fisher-Yates shuffle so bass/upper voices get fresh random seats each time
   for (let i = pans.length - 1; i > 0; i--) {

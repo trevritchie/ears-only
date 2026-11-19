@@ -671,22 +671,35 @@ describe('SessionController state machine & scheduler', () => {
     expect(seventhRun.announcer.spoken[0].text).toBe('Two minor seven');
   });
 
-  it('assigns non-hard random voice-led pans when voicePanning is enabled and omits explicit pan when off', () => {
-    // OFF by default: notes leave pan undefined so PolySynth uses its default subtle spread
-    expect(DEFAULT_SETTINGS.voicePanning).toBe(false);
-    const offRun = createHarness({
+  it('supports default Left-to-Right stereo, Random voice-led stereo, and Stereo OFF centered mono', () => {
+    // Default: Stereo ON + Left to right ([-0.84, -0.28, 0.28, 0.84] low to high)
+    expect(DEFAULT_SETTINGS.voicePanning).toBe(true);
+    expect(DEFAULT_SETTINGS.voicePanningMode).toBe('left-to-right');
+
+    const ltrRun = createHarness({
       allowedChords: ['I', 'IV'],
       progressionLength: 2,
       questionRepeats: 1,
       keyOrientation: 'none',
     });
-    offRun.controller.start();
-    expect(offRun.synth.chords[0].notes.every((n) => n.pan === undefined)).toBe(
-      true,
-    );
+    ltrRun.controller.start();
+    expect(ltrRun.synth.chords[0].notes.map((n) => n.pan)).toEqual([
+      -0.84, -0.28, 0.28, 0.84,
+    ]);
 
-    // ON: every note gets a bounded non-hard pan [-0.72, 0.72] and preserves voice seats across chords
-    const onRun = createHarness(
+    // Stereo OFF: true centered mono (pan = 0 on every voice)
+    const monoRun = createHarness({
+      allowedChords: ['I', 'IV'],
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      voicePanning: false,
+    });
+    monoRun.controller.start();
+    expect(monoRun.synth.chords[0].notes.every((n) => n.pan === 0)).toBe(true);
+
+    // Stereo ON + Random: shuffled wide seats that follow voice leading across chords
+    const randRun = createHarness(
       {
         allowedChords: ['I', 'IV', 'V', 'vi'],
         bpm: 240, // 1.0s per chord
@@ -694,15 +707,16 @@ describe('SessionController state machine & scheduler', () => {
         questionRepeats: 1,
         keyOrientation: 'none',
         voicePanning: true,
+        voicePanningMode: 'random',
       },
       [0.15, 0.7, 0.35, 0.85, 0.25, 0.6],
     );
-    onRun.controller.start();
-    advanceAndTick(onRun.synth, onRun.clock, 1.2);
-    expect(onRun.synth.chords.length).toBeGreaterThanOrEqual(2);
+    randRun.controller.start();
+    advanceAndTick(randRun.synth, randRun.clock, 1.2);
+    expect(randRun.synth.chords.length).toBeGreaterThanOrEqual(2);
 
-    const chord0Pans = onRun.synth.chords[0].notes.map((n) => n.pan!);
-    const chord1Pans = onRun.synth.chords[1].notes.map((n) => n.pan!);
+    const chord0Pans = randRun.synth.chords[0].notes.map((n) => n.pan!);
+    const chord1Pans = randRun.synth.chords[1].notes.map((n) => n.pan!);
     expect([...chord0Pans].sort((a, b) => a - b)).toEqual([
       -0.84, -0.28, 0.28, 0.84,
     ]);
