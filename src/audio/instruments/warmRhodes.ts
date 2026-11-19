@@ -43,9 +43,9 @@ export function buildWarmRhodesVoice({
   tremoloGain.gain.setValueAtTime(1.0, now);
   const tremoloLfo = ctx.createOscillator();
   tremoloLfo.type = 'sine';
-  tremoloLfo.frequency.setValueAtTime(2.4, t0);
+  tremoloLfo.frequency.setValueAtTime(2.1, t0);
   const tremoloDepth = ctx.createGain();
-  tremoloDepth.gain.value = 0.09;
+  tremoloDepth.gain.value = 0.05;
   tremoloLfo.connect(tremoloDepth);
   tremoloDepth.connect(tremoloGain.gain);
 

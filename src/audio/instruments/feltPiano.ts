@@ -58,7 +58,7 @@ export function buildFeltPianoVoice({
   const unisonOsc = ctx.createOscillator();
   unisonOsc.type = 'sine';
   unisonOsc.frequency.setValueAtTime(freq, t0);
-  unisonOsc.detune.setValueAtTime(3.5, t0);
+  unisonOsc.detune.setValueAtTime(1.8, t0);
   const unisonGain = ctx.createGain();
   unisonGain.gain.value = 0.34;
   unisonOsc.connect(unisonGain);

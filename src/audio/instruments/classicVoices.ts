@@ -142,9 +142,9 @@ export function buildClassicSoftPadVoice({
   const oscA = ctx.createOscillator();
   oscA.type = 'triangle';
   oscA.frequency.setValueAtTime(freq, t0);
-  oscA.detune.setValueAtTime(-4, t0);
+  oscA.detune.setValueAtTime(-2.2, t0);
   const gainA = ctx.createGain();
-  gainA.gain.value = 0.48;
+  gainA.gain.value = 0.52;
   oscA.connect(gainA);
   gainA.connect(noteFilter);
   oscs.push(oscA);
@@ -153,9 +153,9 @@ export function buildClassicSoftPadVoice({
   const oscB = ctx.createOscillator();
   oscB.type = 'sine';
   oscB.frequency.setValueAtTime(freq, t0);
-  oscB.detune.setValueAtTime(4, t0);
+  oscB.detune.setValueAtTime(2.2, t0);
   const gainB = ctx.createGain();
-  gainB.gain.value = 0.48;
+  gainB.gain.value = 0.44;
   oscB.connect(gainB);
   gainB.connect(noteFilter);
   oscs.push(oscB);

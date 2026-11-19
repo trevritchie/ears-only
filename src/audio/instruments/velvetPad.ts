@@ -39,36 +39,38 @@ export function buildVelvetPadVoice({
   const oscs: OscillatorNode[] = [];
   const auxNodes: AudioNode[] = [noteFilter];
 
+  const detuneCents = isBass ? 1.5 : 2.5;
+
   // Warm chorus sawtooth layer
   const sawOsc = ctx.createOscillator();
   sawOsc.type = 'sawtooth';
   sawOsc.frequency.setValueAtTime(freq, t0);
-  sawOsc.detune.setValueAtTime(-7, t0);
+  sawOsc.detune.setValueAtTime(-detuneCents, t0);
   const sawGain = ctx.createGain();
-  sawGain.gain.value = isBass ? 0.18 : 0.22;
+  sawGain.gain.value = isBass ? 0.17 : 0.2;
   sawOsc.connect(sawGain);
   sawGain.connect(noteFilter);
   oscs.push(sawOsc);
   auxNodes.push(sawGain);
 
-  // Center triangle core
+  // Center triangle core (firm pitch anchor)
   const triOsc = ctx.createOscillator();
   triOsc.type = 'triangle';
   triOsc.frequency.setValueAtTime(freq, t0);
   const triGain = ctx.createGain();
-  triGain.gain.value = 0.48;
+  triGain.gain.value = 0.6;
   triOsc.connect(triGain);
   triGain.connect(noteFilter);
   oscs.push(triOsc);
   auxNodes.push(triGain);
 
-  // Detuned sine shimmer
+  // Subtle detuned sine shimmer
   const sineOsc = ctx.createOscillator();
   sineOsc.type = 'sine';
   sineOsc.frequency.setValueAtTime(freq, t0);
-  sineOsc.detune.setValueAtTime(7, t0);
+  sineOsc.detune.setValueAtTime(detuneCents, t0);
   const sineGain = ctx.createGain();
-  sineGain.gain.value = 0.46;
+  sineGain.gain.value = 0.32;
   sineOsc.connect(sineGain);
   sineGain.connect(noteFilter);
   oscs.push(sineOsc);

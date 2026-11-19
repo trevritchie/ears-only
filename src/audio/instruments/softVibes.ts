@@ -32,14 +32,14 @@ export function buildSoftVibesVoice({
   noteFilter.frequency.setValueAtTime(cutoff, now);
   noteFilter.frequency.setValueAtTime(cutoff, t0);
 
-  // Classic slow vibraphone motor fan tremolo
+  // Subtle slow vibraphone motor fan tremolo
   const tremoloGain = ctx.createGain();
   tremoloGain.gain.setValueAtTime(1.0, now);
   const tremoloLfo = ctx.createOscillator();
   tremoloLfo.type = 'sine';
-  tremoloLfo.frequency.setValueAtTime(3.3, t0);
+  tremoloLfo.frequency.setValueAtTime(2.8, t0);
   const tremoloDepth = ctx.createGain();
-  tremoloDepth.gain.value = 0.13;
+  tremoloDepth.gain.value = 0.07;
   tremoloLfo.connect(tremoloDepth);
   tremoloDepth.connect(tremoloGain.gain);
 
