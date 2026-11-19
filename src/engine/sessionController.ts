@@ -97,6 +97,10 @@ const INTER_PHASE_PAUSE_SEC = 0.7;
 const PRE_ANSWER_PAUSE_SEC = 0.6;
 const POST_ANSWER_PAUSE_SEC = 0.55;
 const NEXT_QUESTION_PAUSE_SEC = 1.1;
+/** Minimum silent margin after a chord's release tail hits 0 before toggling the voice-pocket EQ. */
+const EQ_SILENCE_MARGIN_SEC = 0.12;
+/** Fast click-free time constant used when switching the EQ during silence (99.8% settled in 40ms). */
+const SILENT_DUCK_TIME_CONSTANT_SEC = 0.006;
 
 export class SessionController {
   private settings: SessionSettings;
@@ -154,6 +158,8 @@ export class SessionController {
   private revealSpeechDone = false;
   private revealSpeechFinishedTime: number | null = null;
   private currentRevealVoice: ChordVoiceHandle | null = null;
+  private currentRevealReleaseSec = 0;
+  private lastQuestionReleaseSec = 0;
   private previewVoice: ChordVoiceHandle | null = null;
 
   constructor(initialSettings: SessionSettings, deps: SessionDependencies = {}) {
@@ -338,7 +344,13 @@ export class SessionController {
     this.synth.setVoiceVolume(this.settings.voiceVolume);
     this.synth.setAmbience(this.settings.ambience);
     this.syncDrone();
-    this.synth.setDucked(false, this.synth.getCurrentTime());
+    this.currentRevealReleaseSec = 0;
+    this.lastQuestionReleaseSec = 0;
+    this.synth.setDucked(
+      false,
+      this.synth.getCurrentTime(),
+      SILENT_DUCK_TIME_CONSTANT_SEC,
+    );
 
     this.clock.start(() => this.tick());
     this.beginNextQuestion(true);
@@ -355,6 +367,8 @@ export class SessionController {
     this.previewVoice = null;
     this.currentRevealVoice?.release(this.synth.getCurrentTime(), 0.05);
     this.currentRevealVoice = null;
+    this.currentRevealReleaseSec = 0;
+    this.lastQuestionReleaseSec = 0;
     this.synth.releaseAll(0.05);
     this.synth.setDucked(false, this.synth.getCurrentTime());
     this.drone.stop();
@@ -379,6 +393,8 @@ export class SessionController {
     this.previewVoice = null;
     this.currentRevealVoice?.release(this.synth.getCurrentTime(), 0.05);
     this.currentRevealVoice = null;
+    this.currentRevealReleaseSec = 0;
+    this.lastQuestionReleaseSec = 0;
     this.synth.releaseAll(0.05);
     this.synth.setDucked(false, this.synth.getCurrentTime());
     this.visualCues = [];
@@ -406,6 +422,8 @@ export class SessionController {
     this.previewVoice = null;
     this.currentRevealVoice?.release(this.synth.getCurrentTime(), 0.05);
     this.currentRevealVoice = null;
+    this.currentRevealReleaseSec = 0;
+    this.lastQuestionReleaseSec = 0;
     this.synth.releaseAll(0.05);
     this.synth.setDucked(false, this.synth.getCurrentTime());
     this.visualCues = [];
@@ -565,6 +583,8 @@ export class SessionController {
       this.announcer.cancel();
       this.currentRevealVoice?.release(this.synth.getCurrentTime(), 0.05);
       this.currentRevealVoice = null;
+      this.currentRevealReleaseSec = 0;
+      this.lastQuestionReleaseSec = 0;
       this.synth.releaseAll(0.05);
       this.synth.setDucked(false, this.synth.getCurrentTime());
       this.visualCues = [];
@@ -676,6 +696,12 @@ export class SessionController {
     this.revealedCount = 0;
     this.orientVoiceDoneAt = null;
 
+    this.synth.setDucked(
+      false,
+      this.synth.getCurrentTime(),
+      SILENT_DUCK_TIME_CONSTANT_SEC,
+    );
+
     if (this.announcer.isAvailable()) {
       this.phase = 'orienting_voice';
       this.updateMediaMetadata();
@@ -705,6 +731,11 @@ export class SessionController {
     this.nextScheduleTime = startTime;
     this.visualCues = [];
     this.orientationStepIndex = -1;
+    this.synth.setDucked(
+      false,
+      this.synth.getCurrentTime(),
+      SILENT_DUCK_TIME_CONSTANT_SEC,
+    );
     this.updateMediaMetadata();
     this.emit();
     this.scheduleAvailableChords(this.synth.getCurrentTime());
@@ -717,6 +748,11 @@ export class SessionController {
     this.visualCues = [];
     this.orientationStepIndex = -1;
     this.activeChordIndex = -1;
+    this.synth.setDucked(
+      false,
+      this.synth.getCurrentTime(),
+      SILENT_DUCK_TIME_CONSTANT_SEC,
+    );
     this.updateMediaMetadata();
     this.emit();
     this.scheduleAvailableChords(this.synth.getCurrentTime());
@@ -729,6 +765,11 @@ export class SessionController {
     this.visualCues = [];
     this.activeChordIndex = -1;
     this.revealedCount = this.progression.length;
+    this.synth.setDucked(
+      false,
+      this.synth.getCurrentTime(),
+      SILENT_DUCK_TIME_CONSTANT_SEC,
+    );
     this.updateMediaMetadata();
     this.emit();
     this.scheduleAvailableChords(this.synth.getCurrentTime());
@@ -740,9 +781,10 @@ export class SessionController {
     this.revealedCount = 0;
     this.activeChordIndex = -1;
     this.visualCues = [];
+    this.currentRevealReleaseSec = 0;
 
     if (this.settings.playChordsBehindAnswer) {
-      this.synth.setDucked(true, now);
+      this.synth.setDucked(true, now, SILENT_DUCK_TIME_CONSTANT_SEC);
     }
 
     this.startRevealStep(0, now);
@@ -777,12 +819,12 @@ export class SessionController {
         : this.settings.speechRate;
 
     if (this.settings.playChordsBehindAnswer) {
-      const rollStepSec = getInstrumentPreset(this.settings.timbre).rollStepSec;
+      const preset = getInstrumentPreset(this.settings.timbre);
       const notes = this.applyVoiceStyling(
         this.arrangementStrategy.arrangeChord(
           this.voicedProgression[index],
           null,
-          rollStepSec,
+          preset.rollStepSec,
         ),
         this.progressionPans[index],
         this.progressionVowels[index],
@@ -792,6 +834,9 @@ export class SessionController {
         tStart,
         this.settings.timbre,
       );
+      this.currentRevealReleaseSec = preset.defaultReleaseSec;
+    } else {
+      this.currentRevealReleaseSec = 0;
     }
 
     this.revealIndex = index;
@@ -858,6 +903,7 @@ export class SessionController {
       this.phase === 'question_playing' ||
       this.phase === 'post_answer_replay'
     ) {
+      const preset = getInstrumentPreset(this.settings.timbre);
       const slotDur = this.getSlotDurationSec();
       while (
         this.scheduleIndex < this.voicedProgression.length &&
@@ -867,12 +913,15 @@ export class SessionController {
           this.arrangementStrategy.arrangeChord(
             this.voicedProgression[this.scheduleIndex],
             slotDur,
-            rollStepSec,
+            preset.rollStepSec,
           ),
           this.progressionPans[this.scheduleIndex],
           this.progressionVowels[this.scheduleIndex],
         );
         this.synth.playChord(notes, this.nextScheduleTime, this.settings.timbre);
+        if (this.phase === 'question_playing') {
+          this.lastQuestionReleaseSec = preset.defaultReleaseSec;
+        }
         this.visualCues.push({
           audioTime: this.nextScheduleTime,
           chordIndex: this.scheduleIndex,
@@ -959,7 +1008,12 @@ export class SessionController {
             this.phaseDeadlineTime = now + this.settings.repeatPauseSec;
           } else {
             this.phase = 'pre_answer_pause';
-            this.phaseDeadlineTime = now + PRE_ANSWER_PAUSE_SEC;
+            this.phaseDeadlineTime =
+              now +
+              Math.max(
+                PRE_ANSWER_PAUSE_SEC,
+                this.lastQuestionReleaseSec + EQ_SILENCE_MARGIN_SEC,
+              );
           }
           this.emit();
         }
@@ -997,15 +1051,23 @@ export class SessionController {
             this.currentRevealVoice.release(now);
             this.currentRevealVoice = null;
           }
-          this.synth.setDucked(false, now);
+          // Keep the voice-pocket EQ engaged while the last answer chord fades
+          // out; it lifts cleanly in the silence right before the next chord.
+          const releaseClearance =
+            this.currentRevealReleaseSec > 0
+              ? this.currentRevealReleaseSec + EQ_SILENCE_MARGIN_SEC
+              : 0;
+          this.currentRevealReleaseSec = 0;
           this.activeChordIndex = -1;
 
           if (this.settings.playFinalReplayAfterAnswer) {
             this.phase = 'post_answer_pause';
-            this.phaseDeadlineTime = now + POST_ANSWER_PAUSE_SEC;
+            this.phaseDeadlineTime =
+              now + Math.max(POST_ANSWER_PAUSE_SEC, releaseClearance);
           } else {
             this.phase = 'next_question_pause';
-            this.phaseDeadlineTime = now + NEXT_QUESTION_PAUSE_SEC;
+            this.phaseDeadlineTime =
+              now + Math.max(NEXT_QUESTION_PAUSE_SEC, releaseClearance);
           }
           this.updateMediaMetadata();
           this.emit();

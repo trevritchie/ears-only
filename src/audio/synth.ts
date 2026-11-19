@@ -26,7 +26,7 @@ export interface SynthEngine {
     timbre: TimbreId,
   ): ChordVoiceHandle;
   releaseAll(fadeSec?: number): void;
-  setDucked(ducked: boolean, atTime?: number): void;
+  setDucked(ducked: boolean, atTime?: number, timeConstantSec?: number): void;
   setChordVolume(volume: number): void;
   setVoiceVolume(volume: number): void;
   setAmbience(mode: AmbienceMode): void;
@@ -233,20 +233,21 @@ export class PolySynth implements SynthEngine {
     };
   }
 
-  setDucked(ducked: boolean, atTime?: number): void {
+  setDucked(ducked: boolean, atTime?: number, timeConstantSec = 0.08): void {
     this.isDucked = ducked;
     if (!this.ctx || !this.chordBus) return;
     const t = Math.max(this.ctx.currentTime, atTime ?? this.ctx.currentTime);
+    const tau = Math.max(0.004, timeConstantSec);
     this.chordBus.gain.setTargetAtTime(
       ducked ? DUCKED_CHORD_BUS_GAIN : 1.0,
       t,
-      0.08,
+      tau,
     );
     if (this.voicePocketEq) {
       this.voicePocketEq.gain.setTargetAtTime(
         ducked ? VOICE_POCKET_CUT_DB : 0,
         t,
-        0.08,
+        tau,
       );
     }
   }

@@ -657,6 +657,14 @@ describe('meditative instruments & ambience', () => {
         0.08,
       );
 
+      synth.setDucked(false, 6.0, 0.006);
+      expect(chordBus.gain.setTargetAtTime).toHaveBeenCalledWith(1.0, 6.0, 0.006);
+      expect(pocketFilter!.gain.setTargetAtTime).toHaveBeenCalledWith(
+        0,
+        6.0,
+        0.006,
+      );
+
       synth.dispose();
     } finally {
       Object.defineProperty(window, 'AudioContext', {

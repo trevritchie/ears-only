@@ -29,6 +29,12 @@ interface RecordedChord {
 class FakeSynth implements SynthEngine {
   currentTime = 0;
   ducked = false;
+  duckEvents: {
+    ducked: boolean;
+    atTime?: number;
+    timeConstantSec?: number;
+    currentTime: number;
+  }[] = [];
   chordVolume = 0.75;
   voiceVolume = 0.65;
   ambience: AmbienceMode = 'warm-room';
@@ -72,8 +78,18 @@ class FakeSynth implements SynthEngine {
     this.releaseAllCount++;
   }
 
-  setDucked(ducked: boolean): void {
+  setDucked(
+    ducked: boolean,
+    atTime?: number,
+    timeConstantSec?: number,
+  ): void {
     this.ducked = ducked;
+    this.duckEvents.push({
+      ducked,
+      atTime,
+      timeConstantSec,
+      currentTime: this.currentTime,
+    });
   }
 
   setChordVolume(volume: number): void {
@@ -346,8 +362,8 @@ describe('SessionController state machine & scheduler', () => {
     expect(controller.getSnapshot().phase).toBe('question_playing');
     expect(controller.getSnapshot().currentPass).toBe(2);
 
-    // Finish Pass 2 (4.0s) -> pre_answer_pause (0.6s) -> answer_revealing
-    advanceAndTick(synth, clock, 4.75);
+    // Finish Pass 2 (4.0s) -> pre_answer_pause (clears 0.55s release + silence) -> answer_revealing
+    advanceAndTick(synth, clock, 4.8);
     expect(controller.getSnapshot().phase).toBe('answer_revealing');
     expect(synth.ducked).toBe(true);
     expect(controller.getSnapshot().revealedCount).toBe(1);
@@ -361,11 +377,13 @@ describe('SessionController state machine & scheduler', () => {
     announcer.finishLatest();
     advanceAndTick(synth, clock, 1.85);
     expect(controller.getSnapshot().phase).toBe('post_answer_pause');
-    expect(synth.ducked).toBe(false);
+    // EQ stays ducked while the last answer chord fades out so it does not lift early
+    expect(synth.ducked).toBe(true);
 
-    // Post-answer pause (0.55s) -> post_answer_replay (2 chords * 2.0s = 4.0s) -> next_question_pause
-    advanceAndTick(synth, clock, 0.6);
+    // Post-answer pause (clears release tail + silence) -> post_answer_replay -> next_question_pause
+    advanceAndTick(synth, clock, 0.75);
     expect(controller.getSnapshot().phase).toBe('post_answer_replay');
+    expect(synth.ducked).toBe(false);
     expect(controller.getSnapshot().revealedCount).toBe(2);
 
     advanceAndTick(synth, clock, 4.2);
@@ -483,7 +501,8 @@ describe('SessionController state machine & scheduler', () => {
     advanceAndTick(synth, clock, 1.15);
 
     expect(controller.getSnapshot().phase).toBe('post_answer_pause');
-    advanceAndTick(synth, clock, 0.6);
+    expect(synth.ducked).toBe(true);
+    advanceAndTick(synth, clock, 0.75);
     expect(controller.getSnapshot().phase).toBe('post_answer_replay');
     expect(synth.ducked).toBe(false);
     expect(controller.getSnapshot().revealedCount).toBe(2);
@@ -769,5 +788,84 @@ describe('SessionController state machine & scheduler', () => {
     });
     // Mix of both vowels across the progression
     expect(new Set(chordVowels).size).toBe(2);
+  });
+
+  it('keeps the voice-pocket EQ engaged through the last answer chord release and lifts in silence before the next chord', () => {
+    const withReplay = createHarness({
+      allowedChords: ['I', 'IV'],
+      bpm: 240, // 4 beats = 1.0s per chord
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      timbre: 'velvet-pad', // 0.55s default release tail
+      playChordsBehindAnswer: true,
+      playFinalReplayAfterAnswer: true,
+    });
+
+    withReplay.controller.start();
+    withReplay.controller.skipToAnswer();
+    withReplay.announcer.finishLatest();
+    advanceAndTick(withReplay.synth, withReplay.clock, 1.1);
+    withReplay.announcer.finishLatest();
+    advanceAndTick(withReplay.synth, withReplay.clock, 1.1);
+
+    expect(withReplay.controller.getSnapshot().phase).toBe('post_answer_pause');
+    const lastRevealChord =
+      withReplay.synth.chords[withReplay.synth.chords.length - 1];
+    expect(lastRevealChord.releasedAt).not.toBeNull();
+
+    // Still fading out 0.35s into the 0.55s release -> must remain ducked
+    advanceAndTick(withReplay.synth, withReplay.clock, 0.35);
+    expect(withReplay.controller.getSnapshot().phase).toBe('post_answer_pause');
+    expect(withReplay.synth.ducked).toBe(true);
+
+    // After the 0.55s release tail + silence margin, transitions into replay
+    advanceAndTick(withReplay.synth, withReplay.clock, 0.45);
+    expect(withReplay.controller.getSnapshot().phase).toBe('post_answer_replay');
+    expect(withReplay.synth.ducked).toBe(false);
+
+    const liftEvent = [...withReplay.synth.duckEvents]
+      .reverse()
+      .find((e) => e.ducked === false);
+    const firstReplayChord =
+      withReplay.synth.chords[withReplay.synth.chords.length - 1];
+
+    expect(liftEvent).toBeDefined();
+    // Lifted strictly AFTER the 0.55s release tail finished
+    expect(liftEvent!.currentTime).toBeGreaterThanOrEqual(
+      lastRevealChord.releasedAt! + 0.55,
+    );
+    // And BEFORE the first replay chord starts, with a fast silent time constant
+    expect(liftEvent!.currentTime).toBeLessThan(firstReplayChord.startTime);
+    expect(liftEvent!.timeConstantSec).toBeLessThanOrEqual(0.01);
+    expect(firstReplayChord.duckedWhenStarted).toBe(false);
+
+    // Also verify when final replay is disabled: stays ducked through release, lifts before Q2
+    const noReplay = createHarness({
+      allowedChords: ['I', 'IV'],
+      bpm: 240,
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      timbre: 'warm-strings', // 0.56s default release tail
+      playChordsBehindAnswer: true,
+      playFinalReplayAfterAnswer: false,
+    });
+    noReplay.controller.start();
+    noReplay.controller.skipToAnswer();
+    noReplay.announcer.finishLatest();
+    advanceAndTick(noReplay.synth, noReplay.clock, 1.1);
+    noReplay.announcer.finishLatest();
+    advanceAndTick(noReplay.synth, noReplay.clock, 1.1);
+
+    expect(noReplay.controller.getSnapshot().phase).toBe('next_question_pause');
+    expect(noReplay.synth.ducked).toBe(true);
+
+    // Advances to Question 2 after 1.1s pause -> lifts in silence before Q2 chord 1
+    advanceAndTick(noReplay.synth, noReplay.clock, 1.2);
+    expect(noReplay.controller.getSnapshot().phase).toBe('question_playing');
+    expect(noReplay.synth.ducked).toBe(false);
+    const q2FirstChord = noReplay.synth.chords[noReplay.synth.chords.length - 1];
+    expect(q2FirstChord.duckedWhenStarted).toBe(false);
   });
 });
