@@ -77,7 +77,7 @@ export function getVoiceClipFilename(text: string): string | null {
   return PHRASE_TO_FILENAME[key] ?? null;
 }
 
-export const VOICE_CLIPS_VERSION = '2';
+export const VOICE_CLIPS_VERSION = '3';
 
 export function getVoiceClipUrl(text: string): string | null {
   const filename = getVoiceClipFilename(text);
