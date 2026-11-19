@@ -227,18 +227,18 @@ describe('progression & key generators', () => {
 });
 
 describe('voice-led random stereo panning', () => {
-  it('generates balanced non-hard-panned stereo positions strictly within [-0.72, 0.72]', () => {
-    for (let run = 0; run < 30; run++) {
+  it('spreads 4 voices evenly across [-0.84, -0.28, 0.28, 0.84] and randomizes voice seat assignment', () => {
+    const topVoicePositions = new Set<number>();
+    for (let run = 0; run < 40; run++) {
       const pans = generateRandomVoicePans(4);
       expect(pans).toHaveLength(4);
-      for (const p of pans) {
-        expect(p).toBeGreaterThanOrEqual(-0.72);
-        expect(p).toBeLessThanOrEqual(0.72);
-      }
-      // Balanced across left and right (two negative, two positive)
-      expect(pans.filter((p) => p < 0)).toHaveLength(2);
-      expect(pans.filter((p) => p > 0)).toHaveLength(2);
+      expect([...pans].sort((a, b) => a - b)).toEqual([
+        -0.84, -0.28, 0.28, 0.84,
+      ]);
+      topVoicePositions.add(pans[3]);
     }
+    // Over 40 draws, the highest voice should not stay stuck in a single seat
+    expect(topVoicePositions.size).toBeGreaterThan(1);
   });
 
   it('keeps common tones and closest voice-led steps locked to their previous stereo pan', () => {

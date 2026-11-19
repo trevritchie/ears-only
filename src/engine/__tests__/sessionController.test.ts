@@ -703,10 +703,9 @@ describe('SessionController state machine & scheduler', () => {
 
     const chord0Pans = onRun.synth.chords[0].notes.map((n) => n.pan!);
     const chord1Pans = onRun.synth.chords[1].notes.map((n) => n.pan!);
-    for (const p of [...chord0Pans, ...chord1Pans]) {
-      expect(typeof p).toBe('number');
-      expect(Math.abs(p)).toBeLessThanOrEqual(0.72);
-    }
+    expect([...chord0Pans].sort((a, b) => a - b)).toEqual([
+      -0.84, -0.28, 0.28, 0.84,
+    ]);
     // Bass stays in same pan seat and upper pan set stays identical
     expect(chord1Pans[0]).toBe(chord0Pans[0]);
     expect([...chord1Pans.slice(1)].sort((a, b) => a - b)).toEqual(

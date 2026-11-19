@@ -1,6 +1,6 @@
 import type { VoicedChord } from './voicing';
 
-const MAX_PAN = 0.72;
+const MAX_PAN = 0.84;
 
 // 6 permutations of [0, 1, 2] for exact optimal 3-voice upper matching
 const PERMS_3: readonly [number, number, number][] = [
@@ -13,39 +13,21 @@ const PERMS_3: readonly [number, number, number][] = [
 ];
 
 /**
- * Generates well-separated random stereo pan positions bounded strictly inside
- * [-0.72, +0.72] (avoiding hard left/right panning) and shuffles them randomly
- * across voices so every chord has a balanced stereo image without clumping.
+ * Spreads voices evenly across the stereo field from -0.84 to +0.84 (wide,
+ * almost hard pan for the outer two voices without 100% isolation), then
+ * randomly shuffles which voice gets each stereo seat.
  */
 export function generateRandomVoicePans(
   voiceCount: number,
   rng: () => number = Math.random,
 ): number[] {
   if (voiceCount <= 0) return [];
-  if (voiceCount === 1) {
-    return [(rng() * 2 - 1) * MAX_PAN];
-  }
+  if (voiceCount === 1) return [0];
 
-  // Stratified stereo zones across [-MAX_PAN, +MAX_PAN] with inner jitter
-  const zones: [number, number][] =
-    voiceCount === 4
-      ? [
-          [-0.72, -0.44],
-          [-0.32, -0.08],
-          [0.08, 0.32],
-          [0.44, 0.72],
-        ]
-      : Array.from({ length: voiceCount }, (_, i) => {
-          const span = (MAX_PAN * 2) / voiceCount;
-          const lo = -MAX_PAN + i * span + span * 0.12;
-          const hi = -MAX_PAN + (i + 1) * span - span * 0.12;
-          return [lo, hi] as [number, number];
-        });
-
-  const pans = zones.map(([lo, hi]) => {
-    const raw = lo + rng() * (hi - lo);
-    return Math.max(-MAX_PAN, Math.min(MAX_PAN, Math.round(raw * 1000) / 1000));
-  });
+  const step = (MAX_PAN * 2) / (voiceCount - 1);
+  const pans = Array.from({ length: voiceCount }, (_, i) =>
+    Math.round((-MAX_PAN + i * step) * 1000) / 1000,
+  );
 
   // Fisher-Yates shuffle so bass/upper voices get fresh random seats each time
   for (let i = pans.length - 1; i > 0; i--) {
