@@ -9,6 +9,7 @@ import {
   type VoiceSharedResources,
 } from './instruments/types';
 import { AMBIENCE_CONFIGS, createAmbienceImpulseResponse } from './reverb';
+import { AcousticSampleBank, isAcousticSampleTimbre } from './sampleBank';
 import { chordSliderToGain, voiceSliderToGain } from './volume';
 
 export interface ChordVoiceHandle {
@@ -55,6 +56,7 @@ export class PolySynth implements SynthEngine {
   private compressor: DynamicsCompressorNode | null = null;
   private sharedResources: VoiceSharedResources | null = null;
   private choirBank = new ChoirSampleBank();
+  private sampleBank = new AcousticSampleBank();
   private irCache = new Map<'warm-room' | 'lush-hall', AudioBuffer>();
   private graphNodes: AudioNode[] = [];
 
@@ -290,10 +292,17 @@ export class PolySynth implements SynthEngine {
   }
 
   async preloadTimbre(timbre: TimbreId): Promise<void> {
-    if (timbre !== 'satb-choir') return;
-    const ctx = this.initGraph();
-    if (!ctx) return;
-    await this.choirBank.preload(ctx);
+    if (timbre === 'satb-choir') {
+      const ctx = this.initGraph();
+      if (!ctx) return;
+      await this.choirBank.preload(ctx);
+      return;
+    }
+    if (isAcousticSampleTimbre(timbre)) {
+      const ctx = this.initGraph();
+      if (!ctx) return;
+      await this.sampleBank.preload(ctx, timbre);
+    }
   }
 
   playChord(
@@ -384,6 +393,7 @@ export class PolySynth implements SynthEngine {
       envGain,
       shared,
       choirBank: this.choirBank,
+      sampleBank: this.sampleBank,
     });
 
     envGain.connect(releaseGain);
@@ -496,6 +506,7 @@ export class PolySynth implements SynthEngine {
     this.graphNodes = [];
     this.irCache.clear();
     this.choirBank.clear();
+    this.sampleBank.clear();
     this.sharedResources = null;
     this.ctx = null;
     this.chordBus = null;

@@ -84,6 +84,21 @@ describe('Ears Only App UI', () => {
       screen.getByRole('button', { name: /soft vibes/i }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('button', { name: /grand piano.*salamander acoustic/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /warm strings.*bowed ensemble/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /concert harp.*plucked acoustic/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /nylon guitar.*classical acoustic/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /pipe organ.*warm cathedral/i }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole('button', { name: /satb choir.*ooh & ahh voices/i }),
     ).toBeInTheDocument();
     expect(

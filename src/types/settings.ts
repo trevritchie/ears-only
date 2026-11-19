@@ -13,11 +13,16 @@ export type SeventhId =
 export type ChordId = TriadId | SeventhId;
 
 export type TimbreId =
+  | 'velvet-pad'
+  | 'grand-piano'
+  | 'warm-strings'
+  | 'satb-choir'
+  | 'concert-harp'
+  | 'nylon-guitar'
+  | 'pipe-organ'
   | 'felt-piano'
   | 'warm-rhodes'
-  | 'velvet-pad'
-  | 'soft-vibes'
-  | 'satb-choir';
+  | 'soft-vibes';
 export type AmbienceMode = 'dry' | 'warm-room' | 'lush-hall';
 export type VoicePanningMode = 'left-to-right' | 'satb' | 'random';
 export type KeyMode = 'fixed' | 'auto-rotate';
@@ -146,11 +151,16 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
   }
 
   const validTimbres: readonly TimbreId[] = [
+    'velvet-pad',
+    'grand-piano',
+    'warm-strings',
+    'satb-choir',
+    'concert-harp',
+    'nylon-guitar',
+    'pipe-organ',
     'felt-piano',
     'warm-rhodes',
-    'velvet-pad',
     'soft-vibes',
-    'satb-choir',
   ];
   const timbre: TimbreId =
     typeof obj.timbre === 'string' &&

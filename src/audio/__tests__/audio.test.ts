@@ -23,6 +23,12 @@ import { formatDroneNoteName, pitchClassToDroneMidi } from '../drone';
 import { INSTRUMENT_PRESETS } from '../instruments';
 import { computeVoicePan } from '../instruments/types';
 import { AMBIENCE_CONFIGS, createAmbienceImpulseResponse } from '../reverb';
+import {
+  ACOUSTIC_PACK_CONFIGS,
+  AcousticSampleBank,
+  findNearestAnchor,
+  getAcousticSampleUrl,
+} from '../sampleBank';
 import { createSilentWavBuffer } from '../silentKeepAlive';
 import {
   DUCKED_CHORD_BUS_GAIN,
@@ -331,20 +337,70 @@ describe('perceptual volume calibration', () => {
 });
 
 describe('meditative instruments & ambience', () => {
-  it('exposes all 5 meditative instrument presets with Velvet Pad first and SATB Choir included', () => {
-    expect(INSTRUMENT_PRESETS).toHaveLength(5);
+  it('exposes all 10 instrument presets (Velvet Pad default, 6 real-sample acoustics, and 4 synths)', () => {
+    expect(INSTRUMENT_PRESETS).toHaveLength(10);
     const ids = INSTRUMENT_PRESETS.map((p) => p.id);
     expect(ids).toEqual([
       'velvet-pad',
+      'grand-piano',
+      'warm-strings',
+      'satb-choir',
+      'concert-harp',
+      'nylon-guitar',
+      'pipe-organ',
       'felt-piano',
       'warm-rhodes',
       'soft-vibes',
-      'satb-choir',
     ]);
     for (const preset of INSTRUMENT_PRESETS) {
       expect(preset.defaultReleaseSec).toBeGreaterThan(0);
       expect(preset.rollStepSec).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it('lazy-loads acoustic sample packs on demand and maps every note in E2..G5 cleanly', async () => {
+    for (const [id, cfg] of Object.entries(ACOUSTIC_PACK_CONFIGS)) {
+      for (let midi = 40; midi <= 76; midi++) {
+        const { anchorMidi, playbackRate } = findNearestAnchor(
+          cfg.anchors,
+          midi,
+        );
+        expect(Math.abs(midi - anchorMidi)).toBeLessThanOrEqual(2);
+        expect(playbackRate).toBeCloseTo(
+          Math.pow(2, (midi - anchorMidi) / 12),
+          6,
+        );
+      }
+      expect(
+        getAcousticSampleUrl(
+          id as keyof typeof ACOUSTIC_PACK_CONFIGS,
+          cfg.anchors[0],
+        ),
+      ).toMatch(new RegExp(`samples/${id}/${cfg.anchors[0]}\\.mp3\\?v=\\d+$`));
+    }
+
+    const fakeBuf = { duration: 3.8 } as AudioBuffer;
+    const fakeCtx = {
+      decodeAudioData: vi.fn().mockResolvedValue(fakeBuf),
+    } as unknown as AudioContext;
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(16),
+    }) as unknown as typeof fetch;
+
+    const bank = new AcousticSampleBank(fetcher);
+    expect(bank.isPackLoaded('grand-piano')).toBe(false);
+    await bank.preload(fakeCtx, 'grand-piano');
+    expect(bank.isPackLoaded('grand-piano')).toBe(true);
+    expect(bank.isPackLoaded('concert-harp')).toBe(false);
+    expect(fetcher).toHaveBeenCalledTimes(
+      ACOUSTIC_PACK_CONFIGS['grand-piano'].anchors.length,
+    );
+
+    const note = bank.getSample('grand-piano', 61);
+    expect(note).not.toBeNull();
+    expect(note!.buffer).toBe(fakeBuf);
+    expect(note!.sustained).toBe(false);
   });
 
   it('maps any chord MIDI note in E2..G5 to the nearest choir anchor within +/-2 semitones and decodes Ooh/Ahh samples', async () => {

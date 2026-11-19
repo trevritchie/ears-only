@@ -24,4 +24,6 @@ See [ROADMAP.md](./ROADMAP.md) for post-v1 plans (variable rhythms, inversions, 
 
 ## Credits
 
-- SATB Choir "Ooh" and "Ahh" multi-samples derived from FluidR3_GM (`voice_oohs` and `choir_aahs`, Frank Wen / midi-js-soundfonts, CC-BY 3.0).
+- **Grand Piano** samples derived from Salamander Grand Piano V3 (Alexander Holm, CC-BY 3.0).
+- **Concert Harp** samples derived from VSCO 2 Community Edition (Versilian Studios, CC0 1.0 Public Domain).
+- **SATB Choir** (`voice_oohs`, `choir_aahs`), **Warm Strings** (`string_ensemble_1`), **Nylon Guitar** (`acoustic_guitar_nylon`), and **Pipe Organ** (`church_organ`) multi-samples derived from FluidR3_GM (Frank Wen / midi-js-soundfonts, CC-BY 3.0).

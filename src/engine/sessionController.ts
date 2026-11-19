@@ -1,7 +1,7 @@
 import type { ChoirVowel } from '../audio/choirSamples';
 import type { DroneEngine } from '../audio/drone';
 import { ChromaticDrone } from '../audio/drone';
-import { getInstrumentPreset } from '../audio/instruments';
+import { getInstrumentPreset, isSampledTimbre } from '../audio/instruments';
 import type { ChordVoiceHandle, SynthEngine } from '../audio/synth';
 import { PolySynth } from '../audio/synth';
 import {
@@ -508,7 +508,7 @@ export class SessionController {
       this.previewVoice = this.synth.playChord(notes, now + 0.025, targetTimbre);
     };
 
-    if (targetTimbre === 'satb-choir' && this.synth.preloadTimbre) {
+    if (isSampledTimbre(targetTimbre) && this.synth.preloadTimbre) {
       void this.synth.preloadTimbre(targetTimbre).finally(triggerPreview);
     } else {
       triggerPreview();
