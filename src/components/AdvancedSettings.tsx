@@ -1,15 +1,16 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { formatDroneNoteName } from '../audio/drone';
 import { INSTRUMENT_PRESETS } from '../audio/instruments';
 import { AMBIENCE_OPTIONS } from '../audio/reverb';
 import type { SpeechVoiceOption } from '../engine/speech';
 import {
-  getMajorKeyInfo,
   getScaleDegreePitchClass,
   MAJOR_KEYS,
 } from '../music/chords';
 import type {
   AmbienceMode,
+  DroneOctave,
   PitchClass,
   ScaleDegree,
   SessionSettings,
@@ -17,6 +18,13 @@ import type {
 } from '../types/settings';
 
 const SCALE_DEGREES: readonly ScaleDegree[] = [1, 2, 3, 4, 5, 6, 7];
+
+const DRONE_OCTAVE_OPTIONS: readonly { value: DroneOctave; label: string }[] = [
+  { value: -1, label: 'Low (-1)' },
+  { value: 0, label: '0' },
+  { value: 1, label: '+1' },
+  { value: 2, label: 'High (+2)' },
+];
 
 interface AdvancedSettingsProps {
   settings: SessionSettings;
@@ -85,9 +93,10 @@ export function AdvancedSettings({
   onPreviewSound,
 }: AdvancedSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const droneResolvedPitch = getMajorKeyInfo(
+  const droneResolvedPitch = formatDroneNoteName(
     getScaleDegreePitchClass(activeKey, settings.droneScaleDegree),
-  ).shortName;
+    settings.droneOctave,
+  );
   const showResolvedDroneNote = isRunning || settings.keyMode === 'fixed';
 
   return (
@@ -450,6 +459,36 @@ export function AdvancedSettings({
                       }`}
                     >
                       {degree}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <span className="block text-sm font-medium text-[#F3EFE6]">
+                Octave
+              </span>
+              <div
+                className="mt-1.5 grid grid-cols-4 gap-1.5"
+                role="group"
+                aria-label="Drone octave"
+              >
+                {DRONE_OCTAVE_OPTIONS.map((option) => {
+                  const active = settings.droneOctave === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => onUpdate({ droneOctave: option.value })}
+                      className={`min-h-[40px] rounded-xl border px-2 text-xs font-semibold tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
+                        active
+                          ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
+                          : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+                      }`}
+                    >
+                      {option.label}
                     </button>
                   );
                 })}

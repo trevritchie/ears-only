@@ -5,6 +5,7 @@ import type { ScheduledNote } from '../../music/arrangement';
 import {
   DEFAULT_SETTINGS,
   type AmbienceMode,
+  type DroneOctave,
   type PitchClass,
   type SessionSettings,
   type TimbreId,
@@ -98,12 +99,14 @@ class FakeSynth implements SynthEngine {
 class FakeDrone implements DroneEngine {
   active = false;
   pitch: PitchClass = 0;
+  octave: DroneOctave = 0;
   volume = 0;
   pitchHistory: PitchClass[] = [];
 
-  start(pitch: PitchClass, volume: number): void {
+  start(pitch: PitchClass, volume: number, octave: DroneOctave = 0): void {
     this.active = true;
     this.pitch = pitch;
+    this.octave = octave;
     this.volume = volume;
     this.pitchHistory.push(pitch);
   }
@@ -112,8 +115,9 @@ class FakeDrone implements DroneEngine {
     this.active = false;
   }
 
-  setPitch(pitch: PitchClass): void {
+  setPitch(pitch: PitchClass, octave: DroneOctave = this.octave): void {
     this.pitch = pitch;
+    this.octave = octave;
     this.pitchHistory.push(pitch);
   }
 
@@ -483,6 +487,7 @@ describe('SessionController state machine & scheduler', () => {
         keyOrientation: 'cadence',
         droneEnabled: true,
         droneScaleDegree: 5, // 5th (+7 semitones) of active key
+        droneOctave: 2,
         chordVolume: 0.6,
         voiceVolume: 0.95,
       },
@@ -497,19 +502,22 @@ describe('SessionController state machine & scheduler', () => {
     expect(synth.voiceVolume).toBe(0.95);
     expect(drone.active).toBe(true);
     expect(drone.pitch).toBe((initialKey + 7) % 12);
+    expect(drone.octave).toBe(2);
 
-    // Live mix volume update propagates immediately
+    // Live mix volume and drone octave updates propagate immediately
     controller.updateSettings({
       ...DEFAULT_SETTINGS,
       rotateEveryNQuestions: 2,
       keyOrientation: 'cadence',
       droneEnabled: true,
       droneScaleDegree: 5,
+      droneOctave: -1,
       chordVolume: 0.4,
       voiceVolume: 1.0,
     });
     expect(synth.chordVolume).toBe(0.4);
     expect(synth.voiceVolume).toBe(1.0);
+    expect(drone.octave).toBe(-1);
 
     // Complete Q1 via skip-through-answer -> next
     controller.skipToAnswer();

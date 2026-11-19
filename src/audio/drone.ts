@@ -1,12 +1,13 @@
+import { getMajorKeyInfo } from '../music/chords';
 import { midiToFreq } from '../music/voicing';
-import type { PitchClass } from '../types/settings';
+import type { DroneOctave, PitchClass } from '../types/settings';
 import type { PolySynth } from './synth';
 import { droneSliderToGain } from './volume';
 
 export interface DroneEngine {
-  start(pitch: PitchClass, volume: number): void;
+  start(pitch: PitchClass, volume: number, octave?: DroneOctave): void;
   stop(): void;
-  setPitch(pitch: PitchClass): void;
+  setPitch(pitch: PitchClass, octave?: DroneOctave): void;
   setVolume(volume: number): void;
   dispose(): void;
 }
@@ -19,9 +20,41 @@ interface DroneLayer {
   fadeOut: (fadeSec: number) => void;
 }
 
-function pitchClassToDroneMidi(pitch: PitchClass): number {
-  // Maps all 12 pitch classes smoothly into warm cello range [A2 (45), G#3 (56)].
-  return 45 + ((pitch - 9 + 12) % 12);
+/**
+ * Maps pitch class + octave offset (-1..+2) across a musical 4-octave range:
+ *   -1: [A1 (33), G#2 (44)] deep bass pedal below chord roots
+ *    0: [A2 (45), G#3 (56)] warm cello foundation (default)
+ *   +1: [A3 (57), G#4 (68)] warm mid pedal
+ *   +2: [A4 (69), G#5 (80)] pure singing pedal above upper chord voices
+ */
+export function pitchClassToDroneMidi(
+  pitch: PitchClass,
+  octave: DroneOctave = 0,
+): number {
+  const base = 45 + ((pitch - 9 + 12) % 12);
+  return base + octave * 12;
+}
+
+export function formatDroneNoteName(
+  pitch: PitchClass,
+  octave: DroneOctave = 0,
+): string {
+  const midi = pitchClassToDroneMidi(pitch, octave);
+  const scientificOctave = Math.floor(midi / 12) - 1;
+  return `${getMajorKeyInfo(pitch).shortName}${scientificOctave}`;
+}
+
+function getOctaveGainScale(octave: DroneOctave): number {
+  switch (octave) {
+    case -1:
+      return 1.15;
+    case 0:
+      return 1.0;
+    case 1:
+      return 0.78;
+    case 2:
+      return 0.58;
+  }
 }
 
 export class ChromaticDrone implements DroneEngine {
@@ -30,13 +63,18 @@ export class ChromaticDrone implements DroneEngine {
   private activeLayer: DroneLayer | null = null;
   private running = false;
   private currentPitch: PitchClass = 0;
+  private currentOctave: DroneOctave = 0;
   private currentVolume = 0.5;
 
   constructor(synth: PolySynth) {
     this.synth = synth;
   }
 
-  private ensureMasterGain(): { ctx: AudioContext; masterGain: GainNode; target: AudioNode } | null {
+  private ensureMasterGain(): {
+    ctx: AudioContext;
+    masterGain: GainNode;
+    target: AudioNode;
+  } | null {
     const ctx = this.synth.getAudioContext();
     const target = this.synth.getCompressorInput();
     if (!ctx || !target) return null;
@@ -57,76 +95,88 @@ export class ChromaticDrone implements DroneEngine {
     ctx: AudioContext,
     masterGain: GainNode,
     pitch: PitchClass,
+    octave: DroneOctave,
     fadeInSec: number,
   ): DroneLayer {
-    const midi = pitchClassToDroneMidi(pitch);
+    const midi = pitchClassToDroneMidi(pitch, octave);
     const freq = midiToFreq(midi);
     const now = ctx.currentTime;
 
+    // Key-track filter cutoff so high soprano pedals stay silky rather than muffled,
+    // while low bass pedals retain warm sub-harmonics without mud.
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(520, now);
+    const cutoff = Math.min(
+      3200,
+      Math.max(420, freq * (octave >= 2 ? 2.1 : 3.2)),
+    );
+    filter.frequency.setValueAtTime(cutoff, now);
     filter.Q.value = 0.65;
 
+    const targetGain = getOctaveGainScale(octave);
     const layerGain = ctx.createGain();
     layerGain.gain.setValueAtTime(0.0001, now);
-    layerGain.gain.linearRampToValueAtTime(1.0, now + fadeInSec);
+    layerGain.gain.linearRampToValueAtTime(targetGain, now + fadeInSec);
 
     // Subtle slow breathing LFO
     const lfo = ctx.createOscillator();
     lfo.type = 'sine';
     lfo.frequency.setValueAtTime(0.12, now);
     const lfoDepth = ctx.createGain();
-    lfoDepth.gain.value = 0.05;
+    lfoDepth.gain.value = 0.045 * targetGain;
     lfo.connect(lfoDepth);
     lfoDepth.connect(layerGain.gain);
 
-    // Fundamental sine + warm triangle + soft octave + subtle pure 5th
+    const oscs: OscillatorNode[] = [];
+    const nodes: AudioNode[] = [filter, layerGain, lfoDepth];
+
+    // Fundamental sine
     const fundOsc = ctx.createOscillator();
     fundOsc.type = 'sine';
     fundOsc.frequency.setValueAtTime(freq, now);
     const fundGain = ctx.createGain();
-    fundGain.gain.value = 0.72;
+    fundGain.gain.value = octave >= 2 ? 0.88 : octave === 1 ? 0.8 : 0.72;
     fundOsc.connect(fundGain);
     fundGain.connect(filter);
+    oscs.push(fundOsc);
+    nodes.push(fundGain);
 
+    // Warm triangle body
     const warmOsc = ctx.createOscillator();
     warmOsc.type = 'triangle';
     warmOsc.frequency.setValueAtTime(freq, now);
     const warmGain = ctx.createGain();
-    warmGain.gain.value = 0.18;
+    warmGain.gain.value = octave >= 2 ? 0.1 : octave === 1 ? 0.14 : 0.18;
     warmOsc.connect(warmGain);
     warmGain.connect(filter);
+    oscs.push(warmOsc);
+    nodes.push(warmGain);
 
-    const octOsc = ctx.createOscillator();
-    octOsc.type = 'sine';
-    octOsc.frequency.setValueAtTime(freq * 2, now);
-    const octGain = ctx.createGain();
-    octGain.gain.value = 0.16;
-    octOsc.connect(octGain);
-    octGain.connect(filter);
+    // Upper octave & gentle 5th only on lower/mid registers; keep high soprano pedal pure
+    if (octave <= 1) {
+      const octOsc = ctx.createOscillator();
+      octOsc.type = 'sine';
+      octOsc.frequency.setValueAtTime(freq * 2, now);
+      const octGain = ctx.createGain();
+      octGain.gain.value = octave === -1 ? 0.22 : octave === 0 ? 0.16 : 0.08;
+      octOsc.connect(octGain);
+      octGain.connect(filter);
+      oscs.push(octOsc);
+      nodes.push(octGain);
 
-    const fifthOsc = ctx.createOscillator();
-    fifthOsc.type = 'sine';
-    fifthOsc.frequency.setValueAtTime(freq * 1.5, now);
-    const fifthGain = ctx.createGain();
-    fifthGain.gain.value = 0.05;
-    fifthOsc.connect(fifthGain);
-    fifthGain.connect(filter);
+      const fifthOsc = ctx.createOscillator();
+      fifthOsc.type = 'sine';
+      fifthOsc.frequency.setValueAtTime(freq * 1.5, now);
+      const fifthGain = ctx.createGain();
+      fifthGain.gain.value = octave === 1 ? 0.02 : 0.05;
+      fifthOsc.connect(fifthGain);
+      fifthGain.connect(filter);
+      oscs.push(fifthOsc);
+      nodes.push(fifthGain);
+    }
 
     filter.connect(layerGain);
     layerGain.connect(masterGain);
-
-    const oscs = [fundOsc, warmOsc, octOsc, fifthOsc];
-    const nodes: AudioNode[] = [
-      filter,
-      layerGain,
-      lfoDepth,
-      fundGain,
-      warmGain,
-      octGain,
-      fifthGain,
-    ];
 
     const cleanup = () => {
       for (const osc of oscs) {
@@ -182,8 +232,13 @@ export class ChromaticDrone implements DroneEngine {
     return { oscs, lfo, nodes, layerGain, fadeOut };
   }
 
-  start(pitch: PitchClass, volume: number): void {
+  start(
+    pitch: PitchClass,
+    volume: number,
+    octave: DroneOctave = this.currentOctave,
+  ): void {
     this.currentPitch = pitch;
+    this.currentOctave = octave;
     this.currentVolume = volume;
     const setup = this.ensureMasterGain();
     if (!setup) return;
@@ -196,12 +251,12 @@ export class ChromaticDrone implements DroneEngine {
     );
 
     if (this.running && this.activeLayer) {
-      this.setPitch(pitch);
+      this.setPitch(pitch, octave);
       return;
     }
 
     this.running = true;
-    this.activeLayer = this.spawnLayer(ctx, masterGain, pitch, 0.55);
+    this.activeLayer = this.spawnLayer(ctx, masterGain, pitch, octave, 0.55);
   }
 
   stop(): void {
@@ -212,16 +267,24 @@ export class ChromaticDrone implements DroneEngine {
     }
   }
 
-  setPitch(pitch: PitchClass): void {
-    const changed = pitch !== this.currentPitch;
+  setPitch(pitch: PitchClass, octave: DroneOctave = this.currentOctave): void {
+    const changed =
+      pitch !== this.currentPitch || octave !== this.currentOctave;
     this.currentPitch = pitch;
+    this.currentOctave = octave;
     if (!this.running || !changed) return;
 
     const setup = this.ensureMasterGain();
     if (!setup) return;
 
     const oldLayer = this.activeLayer;
-    this.activeLayer = this.spawnLayer(setup.ctx, setup.masterGain, pitch, 0.35);
+    this.activeLayer = this.spawnLayer(
+      setup.ctx,
+      setup.masterGain,
+      pitch,
+      octave,
+      0.35,
+    );
     if (oldLayer) {
       oldLayer.fadeOut(0.35);
     }

@@ -23,6 +23,7 @@ export type AmbienceMode = 'dry' | 'warm-room' | 'lush-hall';
 export type KeyMode = 'fixed' | 'auto-rotate';
 export type KeyOrientationMode = 'cadence' | 'tonic' | 'none';
 export type ScaleDegree = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type DroneOctave = -1 | 0 | 1 | 2;
 export type HalfDimNaming = 'half-diminished' | 'minor-seven-flat-five';
 export type VoiceSource = 'recorded' | 'speech-synthesis';
 
@@ -43,6 +44,7 @@ export interface SessionSettings {
   keyOrientation: KeyOrientationMode;
   droneEnabled: boolean;
   droneScaleDegree: ScaleDegree;
+  droneOctave: DroneOctave;
   droneVolume: number;
   repeatPauseSec: number;
   speechRate: number;
@@ -90,6 +92,7 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   keyOrientation: 'cadence',
   droneEnabled: false,
   droneScaleDegree: 1,
+  droneOctave: 0,
   droneVolume: 0.5,
   repeatPauseSec: 1.2,
   speechRate: 1.0,
@@ -232,6 +235,12 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       7,
       DEFAULT_SETTINGS.droneScaleDegree,
     ) as ScaleDegree,
+    droneOctave: clampInt(
+      obj.droneOctave,
+      -1,
+      2,
+      DEFAULT_SETTINGS.droneOctave,
+    ) as DroneOctave,
     droneVolume: hasCalibratedVolumes
       ? clampNumber(obj.droneVolume, 0, 1, DEFAULT_SETTINGS.droneVolume)
       : DEFAULT_SETTINGS.droneVolume,

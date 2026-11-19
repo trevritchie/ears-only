@@ -232,6 +232,7 @@ export class SessionController {
     this.drone.start(
       this.resolveDronePitch(this.activeKey),
       this.settings.droneVolume,
+      this.settings.droneOctave,
     );
   }
 
@@ -455,9 +456,16 @@ export class SessionController {
     // Update live drone parameters immediately
     if (next.droneEnabled) {
       if (!prev.droneEnabled) {
-        this.drone.start(this.resolveDronePitch(this.activeKey), next.droneVolume);
+        this.drone.start(
+          this.resolveDronePitch(this.activeKey),
+          next.droneVolume,
+          next.droneOctave,
+        );
       } else {
-        this.drone.setPitch(this.resolveDronePitch(this.activeKey));
+        this.drone.setPitch(
+          this.resolveDronePitch(this.activeKey),
+          next.droneOctave,
+        );
         this.drone.setVolume(next.droneVolume);
       }
     } else if (prev.droneEnabled) {
@@ -504,7 +512,10 @@ export class SessionController {
       this.questionsInCurrentKey = 0;
       this.previousQuestionEndVoicing = undefined;
       if (this.settings.droneEnabled) {
-        this.drone.setPitch(this.resolveDronePitch(this.activeKey));
+        this.drone.setPitch(
+          this.resolveDronePitch(this.activeKey),
+          this.settings.droneOctave,
+        );
       }
     }
 

@@ -129,6 +129,7 @@ describe('Ears Only App UI', () => {
 
     await user.click(screen.getByRole('switch', { name: /^enable drone$/i }));
     await user.click(screen.getByRole('button', { name: 'Scale tone 5' }));
+    await user.click(screen.getByRole('button', { name: 'High (+2)' }));
 
     // Default Key mode is Auto-rotate
     expect(
@@ -154,6 +155,7 @@ describe('Ears Only App UI', () => {
     expect(saved.ambience).toBe('lush-hall');
     expect(saved.droneEnabled).toBe(true);
     expect(saved.droneScaleDegree).toBe(5);
+    expect(saved.droneOctave).toBe(2);
     expect(saved.keyMode).toBe('auto-rotate');
     expect(saved.chordVolume).toBe(0.75);
     expect(saved.voiceVolume).toBe(0.65);

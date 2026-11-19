@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AudioBufferAnnouncer } from '../../engine/audioAnnouncer';
 import { MAJOR_KEYS, ALL_CHORD_IDS, getSpokenChordPhrase } from '../../music/chords';
 import { sanitizeSettings } from '../../types/settings';
+import { formatDroneNoteName, pitchClassToDroneMidi } from '../drone';
 import { INSTRUMENT_PRESETS } from '../instruments';
 import { computeVoicePan } from '../instruments/types';
 import { AMBIENCE_CONFIGS, createAmbienceImpulseResponse } from '../reverb';
@@ -276,6 +277,23 @@ describe('meditative instruments & ambience', () => {
     expect(sanitizeSettings({ ambience: 'lush-hall' }).ambience).toBe(
       'lush-hall',
     );
+    expect(sanitizeSettings({ droneOctave: 2 }).droneOctave).toBe(2);
+    expect(sanitizeSettings({ droneOctave: -5 }).droneOctave).toBe(-1);
+    expect(sanitizeSettings({ droneOctave: 9 }).droneOctave).toBe(2);
+  });
+
+  it('maps drone octave offsets cleanly from deep bass (-1) to high soprano pedal (+2)', () => {
+    // C (0): -1 = C2 (36), 0 = C3 (48), +1 = C4 (60), +2 = C5 (72)
+    expect(pitchClassToDroneMidi(0, -1)).toBe(36);
+    expect(pitchClassToDroneMidi(0, 0)).toBe(48);
+    expect(pitchClassToDroneMidi(0, 1)).toBe(60);
+    expect(pitchClassToDroneMidi(0, 2)).toBe(72);
+
+    expect(formatDroneNoteName(0, -1)).toBe('C2');
+    expect(formatDroneNoteName(0, 2)).toBe('C5');
+    // G (7): +2 = G5 (79), clearly above E5 (76) upper chord ceiling
+    expect(pitchClassToDroneMidi(7, 2)).toBe(79);
+    expect(formatDroneNoteName(7, 2)).toBe('G5');
   });
 
   it('uses midrange EQ pocket carving with gentle broadband cushion when ducking', async () => {
