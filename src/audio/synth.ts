@@ -303,7 +303,7 @@ export class PolySynth implements SynthEngine {
     const noteReleases: ((atTime: number, customFadeSec?: number) => void)[] = [];
 
     notes.forEach((note, index) => {
-      const pan = computeVoicePan(index, notes.length, note.role);
+      const pan = note.pan ?? computeVoicePan(index, notes.length, note.role);
       const releaseFn = this.scheduleSingleNote(
         ctx,
         bus,

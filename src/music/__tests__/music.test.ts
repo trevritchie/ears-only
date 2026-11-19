@@ -12,6 +12,11 @@ import {
   getOrientationChords,
   pickRandomNextKey,
 } from '../generator';
+import {
+  computeProgressionVoicePans,
+  generateRandomVoicePans,
+  matchUpperVoicePans,
+} from '../panning';
 import { RootBassVoiceLedStrategy } from '../voicing';
 import type { ChordId, PitchClass } from '../../types/settings';
 
@@ -218,5 +223,51 @@ describe('progression & key generators', () => {
     expect(getOrientationChords('cadence')).toEqual(['I', 'IV', 'V', 'I']);
     expect(getOrientationChords('tonic')).toEqual(['I']);
     expect(getOrientationChords('none')).toEqual([]);
+  });
+});
+
+describe('voice-led random stereo panning', () => {
+  it('generates balanced non-hard-panned stereo positions strictly within [-0.72, 0.72]', () => {
+    for (let run = 0; run < 30; run++) {
+      const pans = generateRandomVoicePans(4);
+      expect(pans).toHaveLength(4);
+      for (const p of pans) {
+        expect(p).toBeGreaterThanOrEqual(-0.72);
+        expect(p).toBeLessThanOrEqual(0.72);
+      }
+      // Balanced across left and right (two negative, two positive)
+      expect(pans.filter((p) => p < 0)).toHaveLength(2);
+      expect(pans.filter((p) => p > 0)).toHaveLength(2);
+    }
+  });
+
+  it('keeps common tones and closest voice-led steps locked to their previous stereo pan', () => {
+    // I (C4, E4, G4) -> vi (A3, C4, E4): common tones C4 and E4 must keep their pans!
+    const nextPans = matchUpperVoicePans(
+      [60, 64, 67],
+      [-0.6, 0.2, 0.55],
+      [57, 60, 64],
+    );
+    expect(nextPans).toEqual([0.55, -0.6, 0.2]);
+
+    // Across a full voiced progression, bass stays in its seat and upper pan set is preserved
+    const strategy = new RootBassVoiceLedStrategy();
+    const voiced = strategy.voiceSequence(['ii7', 'V7', 'Imaj7'], 0);
+    const progPans = computeProgressionVoicePans(
+      voiced,
+      undefined,
+      [-0.55, -0.2, 0.22, 0.6],
+    );
+    expect(progPans).toHaveLength(3);
+    // Bass keeps its pan seat across every chord
+    expect(progPans[0][0]).toBe(-0.55);
+    expect(progPans[1][0]).toBe(-0.55);
+    expect(progPans[2][0]).toBe(-0.55);
+    // Upper voice pan set is strictly preserved (voices never jump to brand-new random spots)
+    for (const chordPans of progPans) {
+      expect([...chordPans.slice(1)].sort((a, b) => a - b)).toEqual([
+        -0.2, 0.22, 0.6,
+      ]);
+    }
   });
 });

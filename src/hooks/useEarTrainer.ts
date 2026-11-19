@@ -122,8 +122,8 @@ export function useEarTrainer() {
   }, []);
 
   const previewSound = useCallback(
-    (timbre?: TimbreId, ambience?: AmbienceMode) => {
-      controllerRef.current?.previewSound(timbre, ambience);
+    (timbre?: TimbreId, ambience?: AmbienceMode, voicePanning?: boolean) => {
+      controllerRef.current?.previewSound(timbre, ambience, voicePanning);
     },
     [],
   );

@@ -9,6 +9,8 @@ export interface ScheduledNote {
   durationSec: number | null;
   velocity: number;
   role: NoteRole;
+  /** Optional explicit stereo pan [-1, 1]; falls back to default gentle spread when omitted. */
+  pan?: number;
 }
 
 export interface ArrangementStrategy {

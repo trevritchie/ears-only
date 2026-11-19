@@ -36,6 +36,7 @@ export interface SessionSettings {
   playFinalReplayAfterAnswer: boolean;
   timbre: TimbreId;
   ambience: AmbienceMode;
+  voicePanning: boolean;
   chordVolume: number;
   voiceVolume: number;
   keyMode: KeyMode;
@@ -86,6 +87,7 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   playFinalReplayAfterAnswer: true,
   timbre: 'velvet-pad',
   ambience: 'warm-room',
+  voicePanning: false,
   chordVolume: 0.8,
   voiceVolume: 0.8,
   keyMode: 'auto-rotate',
@@ -213,6 +215,10 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
         : DEFAULT_SETTINGS.playFinalReplayAfterAnswer,
     timbre,
     ambience,
+    voicePanning:
+      typeof obj.voicePanning === 'boolean'
+        ? obj.voicePanning
+        : DEFAULT_SETTINGS.voicePanning,
     chordVolume: hasCalibratedVolumes
       ? clampNumber(obj.chordVolume, 0, 1, DEFAULT_SETTINGS.chordVolume)
       : DEFAULT_SETTINGS.chordVolume,

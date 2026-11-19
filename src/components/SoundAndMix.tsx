@@ -26,7 +26,11 @@ interface SoundAndMixProps {
   activeKey: PitchClass;
   isRunning: boolean;
   onUpdate: (patch: Partial<SessionSettings>) => void;
-  onPreviewSound: (timbre?: TimbreId, ambience?: AmbienceMode) => void;
+  onPreviewSound: (
+    timbre?: TimbreId,
+    ambience?: AmbienceMode,
+    voicePanning?: boolean,
+  ) => void;
 }
 
 export function SoundAndMix({
@@ -124,6 +128,18 @@ export function SoundAndMix({
           })}
         </div>
       </div>
+
+      {/* Voice panning */}
+      <SwitchRow
+        id="toggle-voice-panning"
+        label="Random voice panning"
+        description="Spreads chord notes in stereo while voices stay in place across changes"
+        checked={settings.voicePanning}
+        onChange={(checked) => {
+          onUpdate({ voicePanning: checked });
+          onPreviewSound(settings.timbre, settings.ambience, checked);
+        }}
+      />
 
       {/* Mix volumes + progressive Drone */}
       <div className="space-y-3 border-t border-[#2B323B] pt-4">

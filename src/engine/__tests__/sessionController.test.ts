@@ -670,4 +670,47 @@ describe('SessionController state machine & scheduler', () => {
     seventhRun.controller.skipToAnswer();
     expect(seventhRun.announcer.spoken[0].text).toBe('Two minor seven');
   });
+
+  it('assigns non-hard random voice-led pans when voicePanning is enabled and omits explicit pan when off', () => {
+    // OFF by default: notes leave pan undefined so PolySynth uses its default subtle spread
+    expect(DEFAULT_SETTINGS.voicePanning).toBe(false);
+    const offRun = createHarness({
+      allowedChords: ['I', 'IV'],
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+    });
+    offRun.controller.start();
+    expect(offRun.synth.chords[0].notes.every((n) => n.pan === undefined)).toBe(
+      true,
+    );
+
+    // ON: every note gets a bounded non-hard pan [-0.72, 0.72] and preserves voice seats across chords
+    const onRun = createHarness(
+      {
+        allowedChords: ['I', 'IV', 'V', 'vi'],
+        bpm: 240, // 1.0s per chord
+        progressionLength: 2,
+        questionRepeats: 1,
+        keyOrientation: 'none',
+        voicePanning: true,
+      },
+      [0.15, 0.7, 0.35, 0.85, 0.25, 0.6],
+    );
+    onRun.controller.start();
+    advanceAndTick(onRun.synth, onRun.clock, 1.2);
+    expect(onRun.synth.chords.length).toBeGreaterThanOrEqual(2);
+
+    const chord0Pans = onRun.synth.chords[0].notes.map((n) => n.pan!);
+    const chord1Pans = onRun.synth.chords[1].notes.map((n) => n.pan!);
+    for (const p of [...chord0Pans, ...chord1Pans]) {
+      expect(typeof p).toBe('number');
+      expect(Math.abs(p)).toBeLessThanOrEqual(0.72);
+    }
+    // Bass stays in same pan seat and upper pan set stays identical
+    expect(chord1Pans[0]).toBe(chord0Pans[0]);
+    expect([...chord1Pans.slice(1)].sort((a, b) => a - b)).toEqual(
+      [...chord0Pans.slice(1)].sort((a, b) => a - b),
+    );
+  });
 });

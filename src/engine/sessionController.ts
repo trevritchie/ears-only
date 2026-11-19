@@ -6,6 +6,7 @@ import { PolySynth } from '../audio/synth';
 import {
   type ArrangementStrategy,
   defaultArrangementStrategy,
+  type ScheduledNote,
 } from '../music/arrangement';
 import {
   CHORD_DEFS,
@@ -20,6 +21,10 @@ import {
   pickRandomKey,
   pickRandomNextKey,
 } from '../music/generator';
+import {
+  computeProgressionVoicePans,
+  generateRandomVoicePans,
+} from '../music/panning';
 import {
   defaultVoicingStrategy,
   type VoicedChord,
@@ -113,10 +118,12 @@ export class SessionController {
   private currentPass = 1;
   private progression: ChordId[] = [];
   private voicedProgression: VoicedChord[] = [];
+  private progressionPans: [number, number, number, number][] = [];
   private previousQuestionEndVoicing: VoicedChord | undefined = undefined;
 
   private orientationChords: ChordId[] = [];
   private voicedOrientation: VoicedChord[] = [];
+  private orientationPans: [number, number, number, number][] = [];
   private orientationDurations: number[] = [];
   private orientationStepIndex = -1;
 
@@ -407,11 +414,28 @@ export class SessionController {
     this.beginAnswerReveal(this.synth.getCurrentTime());
   }
 
-  previewSound(timbre?: TimbreId, ambience?: AmbienceMode): void {
+  private applyVoicePans(
+    notes: ScheduledNote[],
+    pans?: readonly number[],
+    enabled = this.settings.voicePanning,
+  ): ScheduledNote[] {
+    if (!enabled || !pans) return notes;
+    return notes.map((note, idx) => ({
+      ...note,
+      pan: pans[idx],
+    }));
+  }
+
+  previewSound(
+    timbre?: TimbreId,
+    ambience?: AmbienceMode,
+    voicePanning?: boolean,
+  ): void {
     if (this.isRunning) return;
 
     const targetTimbre = timbre ?? this.settings.timbre;
     const targetAmbience = ambience ?? this.settings.ambience;
+    const targetPanning = voicePanning ?? this.settings.voicePanning;
 
     void this.synth.ensureContext();
     const now = this.synth.getCurrentTime();
@@ -429,11 +453,15 @@ export class SessionController {
     if (!voiced) return;
 
     const rollStepSec = getInstrumentPreset(targetTimbre).rollStepSec;
-    const notes = this.arrangementStrategy.arrangeChord(
+    const baseNotes = this.arrangementStrategy.arrangeChord(
       voiced,
       1.55,
       rollStepSec,
     );
+    const previewPans = targetPanning
+      ? generateRandomVoicePans(baseNotes.length, this.rng)
+      : undefined;
+    const notes = this.applyVoicePans(baseNotes, previewPans, targetPanning);
     this.previewVoice = this.synth.playChord(notes, now + 0.025, targetTimbre);
   }
 
@@ -537,6 +565,10 @@ export class SessionController {
       this.activeKey,
       this.previousQuestionEndVoicing,
     );
+    this.progressionPans = computeProgressionVoicePans(
+      this.voicedProgression,
+      this.rng,
+    );
     this.previousQuestionEndVoicing =
       this.voicedProgression[this.voicedProgression.length - 1];
     this.currentPass = 1;
@@ -565,6 +597,10 @@ export class SessionController {
     this.voicedOrientation = this.voicingStrategy.voiceSequence(
       this.orientationChords,
       this.activeKey,
+    );
+    this.orientationPans = computeProgressionVoicePans(
+      this.voicedOrientation,
+      this.rng,
     );
     if (this.orientationChords.length === 4) {
       const baseBeat = Math.min(0.85, Math.max(0.55, 60 / this.settings.bpm));
@@ -685,10 +721,13 @@ export class SessionController {
 
     if (this.settings.playChordsBehindAnswer) {
       const rollStepSec = getInstrumentPreset(this.settings.timbre).rollStepSec;
-      const notes = this.arrangementStrategy.arrangeChord(
-        this.voicedProgression[index],
-        null,
-        rollStepSec,
+      const notes = this.applyVoicePans(
+        this.arrangementStrategy.arrangeChord(
+          this.voicedProgression[index],
+          null,
+          rollStepSec,
+        ),
+        this.progressionPans[index],
       );
       this.currentRevealVoice = this.synth.playChord(
         notes,
@@ -736,10 +775,13 @@ export class SessionController {
         this.nextScheduleTime <= now + SCHEDULE_AHEAD_SEC
       ) {
         const dur = this.orientationDurations[this.scheduleIndex];
-        const notes = this.arrangementStrategy.arrangeChord(
-          this.voicedOrientation[this.scheduleIndex],
-          dur,
-          rollStepSec,
+        const notes = this.applyVoicePans(
+          this.arrangementStrategy.arrangeChord(
+            this.voicedOrientation[this.scheduleIndex],
+            dur,
+            rollStepSec,
+          ),
+          this.orientationPans[this.scheduleIndex],
         );
         this.synth.playChord(notes, this.nextScheduleTime, this.settings.timbre);
         this.visualCues.push({
@@ -762,10 +804,13 @@ export class SessionController {
         this.scheduleIndex < this.voicedProgression.length &&
         this.nextScheduleTime <= now + SCHEDULE_AHEAD_SEC
       ) {
-        const notes = this.arrangementStrategy.arrangeChord(
-          this.voicedProgression[this.scheduleIndex],
-          slotDur,
-          rollStepSec,
+        const notes = this.applyVoicePans(
+          this.arrangementStrategy.arrangeChord(
+            this.voicedProgression[this.scheduleIndex],
+            slotDur,
+            rollStepSec,
+          ),
+          this.progressionPans[this.scheduleIndex],
         );
         this.synth.playChord(notes, this.nextScheduleTime, this.settings.timbre);
         this.visualCues.push({
