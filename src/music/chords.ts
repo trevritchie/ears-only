@@ -217,8 +217,8 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     rootOffset: 7,
     intervals: [0, 4, 7, 10],
     upperIntervals: [4, 7, 10],
-    spokenLabel: 'Five seven',
-    estimatedSyllables: 3,
+    spokenLabel: 'Five dominant seven',
+    estimatedSyllables: 6,
   },
   vi7: {
     id: 'vi7',

@@ -29,7 +29,7 @@ const PHRASE_TO_FILENAME: Record<string, string> = {
   'two minor seven': 'chord-ii7.mp3',
   'three minor seven': 'chord-iii7.mp3',
   'four major seven': 'chord-IVmaj7.mp3',
-  'five seven': 'chord-V7.mp3',
+  'five dominant seven': 'chord-V7.mp3',
   'six minor seven': 'chord-vi7.mp3',
   'seven half diminished': 'chord-viihalfdim7.mp3',
   'seven minor seven flat five': 'chord-viihalfdim7-m7b5.mp3',
@@ -66,7 +66,7 @@ export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
   'Two minor seven',
   'Three minor seven',
   'Four major seven',
-  'Five seven',
+  'Five dominant seven',
   'Six minor seven',
   'Seven half diminished',
   'Seven minor seven flat five',
@@ -77,7 +77,7 @@ export function getVoiceClipFilename(text: string): string | null {
   return PHRASE_TO_FILENAME[key] ?? null;
 }
 
-export const VOICE_CLIPS_VERSION = '4';
+export const VOICE_CLIPS_VERSION = '5';
 
 export function getVoiceClipUrl(text: string): string | null {
   const filename = getVoiceClipFilename(text);

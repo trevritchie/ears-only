@@ -85,6 +85,10 @@ describe('music theory & chord definitions', () => {
     });
 
     // Seventh chords stay identical regardless of announceTriadQuality
+    expect(getSpokenChordPhrase('V7', 'half-diminished')).toEqual({
+      text: 'Five dominant seven',
+      estimatedSyllables: 6,
+    });
     for (const seventhId of [
       'Imaj7',
       'ii7',
