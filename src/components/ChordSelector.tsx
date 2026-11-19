@@ -18,11 +18,13 @@ interface ChordSelectorProps {
   allowedChords: DiatonicChordId[];
   secondaryDominantsEnabled: boolean;
   allowedSecondaryDominants: SecondaryDominantId[];
+  strictSecondaryResolution: boolean;
   announceTriadQuality: boolean;
   playChordsBehindAnswer: boolean;
   onChange: (next: DiatonicChordId[]) => void;
   onToggleSecondaryDominants: (enabled: boolean) => void;
   onChangeSecondaryDominants: (next: SecondaryDominantId[]) => void;
+  onToggleStrictSecondaryResolution: (enabled: boolean) => void;
   onToggleTriadQuality: (enabled: boolean) => void;
   onToggleChordsBehindAnswer: (enabled: boolean) => void;
 }
@@ -37,11 +39,13 @@ export function ChordSelector({
   allowedChords,
   secondaryDominantsEnabled,
   allowedSecondaryDominants,
+  strictSecondaryResolution,
   announceTriadQuality,
   playChordsBehindAnswer,
   onChange,
   onToggleSecondaryDominants,
   onChangeSecondaryDominants,
+  onToggleStrictSecondaryResolution,
   onToggleTriadQuality,
   onToggleChordsBehindAnswer,
 }: ChordSelectorProps) {
@@ -82,6 +86,7 @@ export function ChordSelector({
 
   const hasAutoResolvedTarget =
     secondaryDominantsEnabled &&
+    strictSecondaryResolution &&
     allowedSecondaryDominants.some((secId) => {
       const targets = CHORD_DEFS[secId].resolvesTo;
       return targets ? targets.every((t) => !selectedSet.has(t)) : false;
@@ -194,7 +199,9 @@ export function ChordSelector({
           label="Secondary dominants"
           description={
             secondaryDominantsEnabled
-              ? 'Always resolves directly to its target chord'
+              ? strictSecondaryResolution
+                ? 'Resolves directly to each target chord'
+                : 'Secondary dominants can appear anywhere in the progression'
               : 'Add tonicized V/x triads and V7/x dominant sevenths'
           }
           checked={secondaryDominantsEnabled}
@@ -297,8 +304,22 @@ export function ChordSelector({
               </p>
             )}
 
+            <div className="mt-3 border-t border-[#2B323B] pt-3">
+              <SwitchRow
+                id="toggle-strict-secondary-resolution"
+                label="Strict resolution"
+                description={
+                  strictSecondaryResolution
+                    ? 'Always resolves to its target chord (never last)'
+                    : 'Moves freely, including deceptive moves or ending chords'
+                }
+                checked={strictSecondaryResolution}
+                onChange={onToggleStrictSecondaryResolution}
+              />
+            </div>
+
             {hasAutoResolvedTarget && (
-              <p className="mt-2.5 text-[11px] leading-relaxed text-[#9CA3AE]">
+              <p className="mt-2 text-[11px] leading-relaxed text-[#9CA3AE]">
                 Unchecked resolution targets still play automatically after their secondary dominant.
               </p>
             )}

@@ -37,6 +37,7 @@ export function App() {
         allowedChords={settings.allowedChords}
         secondaryDominantsEnabled={settings.secondaryDominantsEnabled}
         allowedSecondaryDominants={settings.allowedSecondaryDominants}
+        strictSecondaryResolution={settings.strictSecondaryResolution}
         announceTriadQuality={settings.announceTriadQuality}
         playChordsBehindAnswer={settings.playChordsBehindAnswer}
         onChange={(allowedChords) => updateSettings({ allowedChords })}
@@ -45,6 +46,9 @@ export function App() {
         }
         onChangeSecondaryDominants={(allowedSecondaryDominants) =>
           updateSettings({ allowedSecondaryDominants })
+        }
+        onToggleStrictSecondaryResolution={(strictSecondaryResolution) =>
+          updateSettings({ strictSecondaryResolution })
         }
         onToggleTriadQuality={(announceTriadQuality) =>
           updateSettings({ announceTriadQuality })

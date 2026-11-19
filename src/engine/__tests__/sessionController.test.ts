@@ -885,7 +885,7 @@ describe('SessionController state machine & scheduler', () => {
     disabled.controller.start();
     expect(disabled.controller.getSnapshot().progression).not.toContain('V7/V');
 
-    // Enabled: rng=0.01 triggers V7/V -> V and speaks "Five seven of five"
+    // Enabled (strict resolution ON by default): rng=0.01 triggers V7/V -> V and speaks "Five seven of five"
     const enabled = createHarness(
       {
         allowedChords: ['I', 'V'],
@@ -901,5 +901,21 @@ describe('SessionController state machine & scheduler', () => {
     expect(enabled.controller.getSnapshot().progression).toEqual(['V7/V', 'V']);
     enabled.controller.skipToAnswer();
     expect(enabled.announcer.spoken[0].text).toBe('Five seven of five');
+
+    // Enabled with strictSecondaryResolution=false: does NOT force resolution to V
+    const freeMove = createHarness(
+      {
+        allowedChords: ['I'],
+        secondaryDominantsEnabled: true,
+        allowedSecondaryDominants: ['V7/V'],
+        strictSecondaryResolution: false,
+        progressionLength: 2,
+        questionRepeats: 1,
+        keyOrientation: 'none',
+      },
+      [0.01, 0.01, 0.01, 0.01],
+    );
+    freeMove.controller.start();
+    expect(freeMove.controller.getSnapshot().progression).toEqual(['V7/V', 'I']);
   });
 });

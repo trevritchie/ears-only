@@ -48,6 +48,7 @@ export interface SessionSettings {
   allowedChords: DiatonicChordId[];
   secondaryDominantsEnabled: boolean;
   allowedSecondaryDominants: SecondaryDominantId[];
+  strictSecondaryResolution: boolean;
   bpm: number;
   progressionLength: number;
   questionRepeats: number;
@@ -122,6 +123,7 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   allowedChords: ['I', 'IV', 'V', 'vi'],
   secondaryDominantsEnabled: false,
   allowedSecondaryDominants: ['V7/ii', 'V7/iii', 'V7/IV', 'V7/V', 'V7/vi'],
+  strictSecondaryResolution: true,
   bpm: 120,
   progressionLength: 4,
   questionRepeats: 2,
@@ -273,6 +275,10 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
         ? obj.secondaryDominantsEnabled
         : DEFAULT_SETTINGS.secondaryDominantsEnabled,
     allowedSecondaryDominants,
+    strictSecondaryResolution:
+      typeof obj.strictSecondaryResolution === 'boolean'
+        ? obj.strictSecondaryResolution
+        : DEFAULT_SETTINGS.strictSecondaryResolution,
     bpm: clampInt(obj.bpm, 60, 240, DEFAULT_SETTINGS.bpm),
     progressionLength: clampInt(
       obj.progressionLength,

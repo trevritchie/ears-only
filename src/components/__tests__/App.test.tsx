@@ -254,10 +254,13 @@ describe('Ears Only App UI', () => {
       screen.getByText(/Seven minor seven flat five/i),
     ).toBeInTheDocument();
 
-    // Enable Secondary dominants, select All 9, and toggle V/ii off
+    // Enable Secondary dominants, select All 9, toggle V/ii off, and toggle Strict resolution off
     await user.click(
       screen.getByRole('switch', { name: /secondary dominants/i }),
     );
+    expect(
+      screen.getByRole('switch', { name: /strict resolution/i }),
+    ).toHaveAttribute('aria-checked', 'true');
     expect(
       screen.getByRole('button', { name: /secondary dominant triad V\/ii \(/i }),
     ).toHaveAttribute('aria-pressed', 'false');
@@ -274,6 +277,12 @@ describe('Ears Only App UI', () => {
     expect(
       screen.getByRole('button', { name: /secondary dominant triad V\/ii \(/i }),
     ).toHaveAttribute('aria-pressed', 'false');
+    await user.click(
+      screen.getByRole('switch', { name: /strict resolution/i }),
+    );
+    expect(
+      screen.getByRole('switch', { name: /strict resolution/i }),
+    ).toHaveAttribute('aria-checked', 'false');
 
     expect(
       screen.getByRole('button', { name: /built-in \(pocket\)/i }),
@@ -305,6 +314,7 @@ describe('Ears Only App UI', () => {
     expect(saved.droneVolume).toBe(0.5);
     expect(saved.voiceSource).toBe('speech-synthesis');
     expect(saved.secondaryDominantsEnabled).toBe(true);
+    expect(saved.strictSecondaryResolution).toBe(false);
     expect(saved.allowedSecondaryDominants).toHaveLength(8);
     expect(saved.allowedSecondaryDominants).not.toContain('V/ii');
   });

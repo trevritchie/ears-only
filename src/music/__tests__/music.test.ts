@@ -291,6 +291,38 @@ describe('progression & key generators', () => {
       ['V7/ii'],
     );
     expect(seventhFallbackSeq).toEqual(['V7/ii', 'ii7']);
+
+    // With strictSecondaryResolution=false, secondary dominants can move freely & land last without consecutive duplicates
+    let endedOnSecDom = false;
+    let nonTargetFollow = false;
+    for (let run = 0; run < 120; run++) {
+      const seq = generateProgression(
+        ['I', 'IV'],
+        4,
+        undefined,
+        Math.random,
+        ['V7/V', 'V7/vi'],
+        false,
+      );
+      expect(seq).toHaveLength(4);
+      if (isSecondaryDominantId(seq[seq.length - 1])) {
+        endedOnSecDom = true;
+      }
+      for (let i = 0; i < seq.length; i++) {
+        if (i > 0) {
+          expect(seq[i]).not.toBe(seq[i - 1]);
+        }
+        if (
+          isSecondaryDominantId(seq[i]) &&
+          i < seq.length - 1 &&
+          !CHORD_DEFS[seq[i]].resolvesTo!.includes(seq[i + 1] as never)
+        ) {
+          nonTargetFollow = true;
+        }
+      }
+    }
+    expect(endedOnSecDom).toBe(true);
+    expect(nonTargetFollow).toBe(true);
   });
 
   it('handles a 1-chord pool safely without crashing', () => {

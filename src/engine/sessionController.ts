@@ -310,11 +310,13 @@ export class SessionController {
     if (this.settings.secondaryDominantsEnabled) {
       for (const secDom of this.settings.allowedSecondaryDominants) {
         addChord(secDom);
-        for (const target of getCandidateResolutionTargets(
-          secDom,
-          this.settings.allowedChords,
-        )) {
-          addChord(target);
+        if (this.settings.strictSecondaryResolution) {
+          for (const target of getCandidateResolutionTargets(
+            secDom,
+            this.settings.allowedChords,
+          )) {
+            addChord(target);
+          }
         }
       }
     }
@@ -652,6 +654,7 @@ export class SessionController {
       this.progression.length > 0 ? this.progression : undefined,
       this.rng,
       activeSecondaryDominants,
+      this.settings.strictSecondaryResolution,
     );
     this.voicedProgression = this.voicingStrategy.voiceSequence(
       this.progression,

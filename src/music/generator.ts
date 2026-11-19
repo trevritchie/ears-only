@@ -43,6 +43,7 @@ export function generateProgression(
   previous?: readonly ChordId[],
   rng: () => number = Math.random,
   secondaryDominants: readonly SecondaryDominantId[] = [],
+  strictSecondaryResolution = true,
 ): ChordId[] {
   if (allowedChords.length === 0) {
     throw new Error('At least one chord must be enabled to generate a progression.');
@@ -51,7 +52,9 @@ export function generateProgression(
     return [];
   }
 
-  const hasSecDoms = secondaryDominants.length > 0 && length >= 2;
+  const hasSecDoms =
+    secondaryDominants.length > 0 &&
+    (!strictSecondaryResolution || length >= 2);
   const secDomProb = hasSecDoms
     ? Math.min(
         0.35,
@@ -72,21 +75,27 @@ export function generateProgression(
     while (i < length) {
       const prevChord = i > 0 ? candidate[i - 1] : undefined;
 
-      // Strict resolution: secondary dominants never land on the final slot and
-      // always immediately resolve to their diatonic target chord.
-      if (hasSecDoms && i < length - 1 && rng() < secDomProb) {
-        const secPool =
-          prevChord !== undefined
-            ? secondaryDominants.filter((c) => c !== prevChord)
-            : secondaryDominants;
-        const secDom = pickRandomItem(
-          secPool.length > 0 ? secPool : secondaryDominants,
-          rng,
-        );
-        const targets = getCandidateResolutionTargets(secDom, allowedChords);
-        const target = pickRandomItem(targets, rng);
-        candidate.push(secDom, target);
-        i += 2;
+      const secPool =
+        prevChord !== undefined
+          ? secondaryDominants.filter((c) => c !== prevChord)
+          : secondaryDominants;
+      const canStartSecDom =
+        hasSecDoms &&
+        secPool.length > 0 &&
+        (strictSecondaryResolution ? i < length - 1 : true);
+
+      if (canStartSecDom && rng() < secDomProb) {
+        const secDom = pickRandomItem(secPool, rng);
+        if (strictSecondaryResolution) {
+          // Strict resolution: immediately resolve to the diatonic target chord.
+          const targets = getCandidateResolutionTargets(secDom, allowedChords);
+          const target = pickRandomItem(targets, rng);
+          candidate.push(secDom, target);
+          i += 2;
+        } else {
+          candidate.push(secDom);
+          i += 1;
+        }
         continue;
       }
 
