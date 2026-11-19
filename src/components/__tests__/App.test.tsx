@@ -72,9 +72,9 @@ describe('Ears Only App UI', () => {
     expect(screen.queryByLabelText(/drone volume/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: /drone scale tone/i })).not.toBeInTheDocument();
 
-    // Basic triads pressed
+    // Basic triads pressed & triad quality toggle defaults to OFF inside Allowed chords
     expect(
-      screen.getByRole('button', { name: /triad I \(one\)/i }),
+      screen.getByRole('button', { name: /triad I \(one major\)/i }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect(
       screen.getByRole('button', { name: /triad ii \(two minor\)/i }),
@@ -82,6 +82,9 @@ describe('Ears Only App UI', () => {
     expect(
       screen.getByRole('button', { name: /seventh Imaj7/i }),
     ).toHaveAttribute('aria-pressed', 'false');
+    expect(
+      screen.getByRole('switch', { name: /speak triad qualities/i }),
+    ).toHaveAttribute('aria-checked', 'false');
   });
 
   it('toggles chords, applies quick-select presets, and prevents deselecting the final chord', async () => {
@@ -122,6 +125,15 @@ describe('Ears Only App UI', () => {
   it('updates primary Sound, Key, Drone, and Advanced Settings and persists to localStorage', async () => {
     const user = userEvent.setup();
     render(<App />);
+
+    // Toggle Speak triad qualities right inside Allowed chords
+    await user.click(
+      screen.getByRole('switch', { name: /speak triad qualities/i }),
+    );
+    expect(
+      screen.getByRole('switch', { name: /speak triad qualities/i }),
+    ).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText(/one major, two minor/i)).toBeInTheDocument();
 
     // Switch Key mode to Fixed key right on primary screen and pick G Major
     await user.click(screen.getByRole('button', { name: /fixed key/i }));
@@ -167,6 +179,7 @@ describe('Ears Only App UI', () => {
     const saved = JSON.parse(
       window.localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}',
     );
+    expect(saved.announceTriadQuality).toBe(true);
     expect(saved.halfDimNaming).toBe('minor-seven-flat-five');
     expect(saved.timbre).toBe('soft-pad');
     expect(saved.ambience).toBe('lush-hall');

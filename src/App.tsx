@@ -35,7 +35,11 @@ export function App() {
 
       <ChordSelector
         allowedChords={settings.allowedChords}
+        announceTriadQuality={settings.announceTriadQuality}
         onChange={(allowedChords) => updateSettings({ allowedChords })}
+        onToggleTriadQuality={(announceTriadQuality) =>
+          updateSettings({ announceTriadQuality })
+        }
       />
 
       <CoreControls settings={settings} onUpdate={updateSettings} />

@@ -59,6 +59,47 @@ describe('music theory & chord definitions', () => {
     }
   });
 
+  it('omits triad quality words by default and announces major/minor/diminished when enabled while keeping sevenths unchanged', () => {
+    // Default (announceTriadQuality = false): numbers only for all 7 triads
+    expect(getSpokenChordPhrase('I', 'half-diminished').text).toBe('One');
+    expect(getSpokenChordPhrase('ii', 'half-diminished').text).toBe('Two');
+    expect(getSpokenChordPhrase('iii', 'half-diminished').text).toBe('Three');
+    expect(getSpokenChordPhrase('IV', 'half-diminished').text).toBe('Four');
+    expect(getSpokenChordPhrase('V', 'half-diminished').text).toBe('Five');
+    expect(getSpokenChordPhrase('vi', 'half-diminished').text).toBe('Six');
+    expect(getSpokenChordPhrase('viio', 'half-diminished').text).toBe('Seven');
+
+    // Enabled (announceTriadQuality = true): includes major on I/IV/V, minor on ii/iii/vi, diminished on vii°
+    expect(getSpokenChordPhrase('I', 'half-diminished', true)).toEqual({
+      text: 'One major',
+      estimatedSyllables: 3,
+    });
+    expect(getSpokenChordPhrase('ii', 'half-diminished', true).text).toBe('Two minor');
+    expect(getSpokenChordPhrase('iii', 'half-diminished', true).text).toBe('Three minor');
+    expect(getSpokenChordPhrase('IV', 'half-diminished', true).text).toBe('Four major');
+    expect(getSpokenChordPhrase('V', 'half-diminished', true).text).toBe('Five major');
+    expect(getSpokenChordPhrase('vi', 'half-diminished', true).text).toBe('Six minor');
+    expect(getSpokenChordPhrase('viio', 'half-diminished', true)).toEqual({
+      text: 'Seven diminished',
+      estimatedSyllables: 5,
+    });
+
+    // Seventh chords stay identical regardless of announceTriadQuality
+    for (const seventhId of [
+      'Imaj7',
+      'ii7',
+      'iii7',
+      'IVmaj7',
+      'V7',
+      'vi7',
+      'viihalfdim7',
+    ] as const) {
+      expect(getSpokenChordPhrase(seventhId, 'half-diminished', true)).toEqual(
+        getSpokenChordPhrase(seventhId, 'half-diminished', false),
+      );
+    }
+  });
+
   it('supports both spoken phrasings for viiø7 with accurate syllable counts', () => {
     const halfDim = getSpokenChordPhrase('viihalfdim7', 'half-diminished');
     expect(halfDim).toEqual({

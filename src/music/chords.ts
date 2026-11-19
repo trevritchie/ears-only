@@ -77,6 +77,8 @@ export interface ChordDefinition {
   upperIntervals: readonly [number, number, number];
   spokenLabel: string;
   estimatedSyllables: number;
+  spokenQualityLabel?: string;
+  estimatedQualitySyllables?: number;
 }
 
 export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
@@ -89,6 +91,8 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     upperIntervals: [0, 4, 7],
     spokenLabel: 'One',
     estimatedSyllables: 1,
+    spokenQualityLabel: 'One major',
+    estimatedQualitySyllables: 3,
   },
   ii: {
     id: 'ii',
@@ -97,8 +101,10 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     rootOffset: 2,
     intervals: [0, 3, 7],
     upperIntervals: [0, 3, 7],
-    spokenLabel: 'Two minor',
-    estimatedSyllables: 3,
+    spokenLabel: 'Two',
+    estimatedSyllables: 1,
+    spokenQualityLabel: 'Two minor',
+    estimatedQualitySyllables: 3,
   },
   iii: {
     id: 'iii',
@@ -107,8 +113,10 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     rootOffset: 4,
     intervals: [0, 3, 7],
     upperIntervals: [0, 3, 7],
-    spokenLabel: 'Three minor',
-    estimatedSyllables: 3,
+    spokenLabel: 'Three',
+    estimatedSyllables: 1,
+    spokenQualityLabel: 'Three minor',
+    estimatedQualitySyllables: 3,
   },
   IV: {
     id: 'IV',
@@ -119,6 +127,8 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     upperIntervals: [0, 4, 7],
     spokenLabel: 'Four',
     estimatedSyllables: 1,
+    spokenQualityLabel: 'Four major',
+    estimatedQualitySyllables: 3,
   },
   V: {
     id: 'V',
@@ -129,6 +139,8 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     upperIntervals: [0, 4, 7],
     spokenLabel: 'Five',
     estimatedSyllables: 1,
+    spokenQualityLabel: 'Five major',
+    estimatedQualitySyllables: 3,
   },
   vi: {
     id: 'vi',
@@ -137,8 +149,10 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     rootOffset: 9,
     intervals: [0, 3, 7],
     upperIntervals: [0, 3, 7],
-    spokenLabel: 'Six minor',
-    estimatedSyllables: 3,
+    spokenLabel: 'Six',
+    estimatedSyllables: 1,
+    spokenQualityLabel: 'Six minor',
+    estimatedQualitySyllables: 3,
   },
   viio: {
     id: 'viio',
@@ -147,8 +161,10 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     rootOffset: 11,
     intervals: [0, 3, 6],
     upperIntervals: [0, 3, 6],
-    spokenLabel: 'Seven diminished',
-    estimatedSyllables: 5,
+    spokenLabel: 'Seven',
+    estimatedSyllables: 2,
+    spokenQualityLabel: 'Seven diminished',
+    estimatedQualitySyllables: 5,
   },
   Imaj7: {
     id: 'Imaj7',
@@ -225,6 +241,7 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
 export function getSpokenChordPhrase(
   chordId: ChordId,
   halfDimNaming: HalfDimNaming,
+  announceTriadQuality = false,
 ): { text: string; estimatedSyllables: number } {
   if (chordId === 'viihalfdim7' && halfDimNaming === 'minor-seven-flat-five') {
     return {
@@ -233,6 +250,12 @@ export function getSpokenChordPhrase(
     };
   }
   const def = CHORD_DEFS[chordId];
+  if (announceTriadQuality && def.spokenQualityLabel) {
+    return {
+      text: def.spokenQualityLabel,
+      estimatedSyllables: def.estimatedQualitySyllables ?? def.estimatedSyllables,
+    };
+  }
   return {
     text: def.spokenLabel,
     estimatedSyllables: def.estimatedSyllables,

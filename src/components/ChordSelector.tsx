@@ -6,10 +6,13 @@ import {
   TRIAD_IDS,
 } from '../music/chords';
 import type { ChordId } from '../types/settings';
+import { SwitchRow } from './SwitchRow';
 
 interface ChordSelectorProps {
   allowedChords: ChordId[];
+  announceTriadQuality: boolean;
   onChange: (next: ChordId[]) => void;
+  onToggleTriadQuality: (enabled: boolean) => void;
 }
 
 function setsMatch(a: readonly ChordId[], b: readonly ChordId[]): boolean {
@@ -18,7 +21,12 @@ function setsMatch(a: readonly ChordId[], b: readonly ChordId[]): boolean {
   return b.every((id) => setA.has(id));
 }
 
-export function ChordSelector({ allowedChords, onChange }: ChordSelectorProps) {
+export function ChordSelector({
+  allowedChords,
+  announceTriadQuality,
+  onChange,
+  onToggleTriadQuality,
+}: ChordSelectorProps) {
   const [minGuardNotice, setMinGuardNotice] = useState(false);
   const selectedSet = new Set(allowedChords);
 
@@ -84,7 +92,7 @@ export function ChordSelector({ allowedChords, onChange }: ChordSelectorProps) {
                 key={id}
                 type="button"
                 aria-pressed={active}
-                aria-label={`Triad ${def.symbol} (${def.spokenLabel})`}
+                aria-label={`Triad ${def.symbol} (${def.spokenQualityLabel ?? def.spokenLabel})`}
                 onClick={() => toggleChord(id)}
                 className={`flex min-h-[48px] items-center justify-center rounded-xl border font-roman text-base sm:text-lg font-semibold transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
                   active
@@ -131,6 +139,20 @@ export function ChordSelector({ allowedChords, onChange }: ChordSelectorProps) {
           Keep at least one chord active.
         </p>
       )}
+
+      <div className="mt-4 border-t border-[#2B323B] pt-3.5">
+        <SwitchRow
+          id="toggle-triad-quality"
+          label="Speak triad qualities"
+          description={
+            announceTriadQuality
+              ? 'Says major, minor, and diminished (e.g. "One major, Two minor")'
+              : 'Says numbers only for triads (e.g. "One, Two, Seven")'
+          }
+          checked={announceTriadQuality}
+          onChange={onToggleTriadQuality}
+        />
+      </div>
     </section>
   );
 }

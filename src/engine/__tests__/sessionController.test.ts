@@ -596,4 +596,52 @@ describe('SessionController state machine & scheduler', () => {
     controller.previewSound('velvet-pad', 'warm-room');
     expect(synth.chords).toHaveLength(countWhileRunning);
   });
+
+  it('speaks triad numbers only by default and includes major/minor/diminished when announceTriadQuality is enabled', () => {
+    // Default (announceTriadQuality = false): minor & diminished triads omit quality
+    const defaultRun = createHarness({
+      allowedChords: ['ii'],
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+    });
+    defaultRun.controller.start();
+    defaultRun.controller.skipToAnswer();
+    expect(defaultRun.announcer.spoken[0].text).toBe('Two');
+
+    // Enabled (announceTriadQuality = true): I speaks "One major", vii° speaks "Seven diminished"
+    const majorRun = createHarness({
+      allowedChords: ['I'],
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      announceTriadQuality: true,
+    });
+    majorRun.controller.start();
+    majorRun.controller.skipToAnswer();
+    expect(majorRun.announcer.spoken[0].text).toBe('One major');
+
+    const dimRun = createHarness({
+      allowedChords: ['viio'],
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      announceTriadQuality: true,
+    });
+    dimRun.controller.start();
+    dimRun.controller.skipToAnswer();
+    expect(dimRun.announcer.spoken[0].text).toBe('Seven diminished');
+
+    // Seventh chords stay unchanged
+    const seventhRun = createHarness({
+      allowedChords: ['ii7'],
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      announceTriadQuality: false,
+    });
+    seventhRun.controller.start();
+    seventhRun.controller.skipToAnswer();
+    expect(seventhRun.announcer.spoken[0].text).toBe('Two minor seven');
+  });
 });

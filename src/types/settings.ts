@@ -49,6 +49,7 @@ export interface SessionSettings {
   repeatPauseSec: number;
   speechRate: number;
   speechVoiceURI: string | null;
+  announceTriadQuality: boolean;
   halfDimNaming: HalfDimNaming;
   voiceSource: VoiceSource;
 }
@@ -97,6 +98,7 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   repeatPauseSec: 1.2,
   speechRate: 1.0,
   speechVoiceURI: null,
+  announceTriadQuality: false,
   halfDimNaming: 'half-diminished',
   voiceSource: 'recorded',
 };
@@ -255,6 +257,10 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       typeof obj.speechVoiceURI === 'string' && obj.speechVoiceURI.length > 0
         ? obj.speechVoiceURI
         : null,
+    announceTriadQuality:
+      typeof obj.announceTriadQuality === 'boolean'
+        ? obj.announceTriadQuality
+        : DEFAULT_SETTINGS.announceTriadQuality,
     halfDimNaming,
     voiceSource,
   };

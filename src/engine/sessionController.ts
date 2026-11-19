@@ -274,7 +274,11 @@ export class SessionController {
     ];
     for (const chordId of this.settings.allowedChords) {
       phrases.push(
-        getSpokenChordPhrase(chordId, this.settings.halfDimNaming).text,
+        getSpokenChordPhrase(
+          chordId,
+          this.settings.halfDimNaming,
+          this.settings.announceTriadQuality,
+        ).text,
       );
     }
     return phrases;
@@ -663,6 +667,7 @@ export class SessionController {
     const { text, estimatedSyllables } = getSpokenChordPhrase(
       chordId,
       this.settings.halfDimNaming,
+      this.settings.announceTriadQuality,
     );
 
     const baseSlotSec = this.getSlotDurationSec();

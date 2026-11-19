@@ -22,7 +22,7 @@ import {
 
 describe('voiceClips mapping', () => {
   it('maps every key and chord spoken phrase to an mp3 URL', () => {
-    expect(ALL_VOICE_CLIP_TEXTS).toHaveLength(27);
+    expect(ALL_VOICE_CLIP_TEXTS).toHaveLength(34);
     for (const phrase of ALL_VOICE_CLIP_TEXTS) {
       const url = getVoiceClipUrl(phrase);
       expect(url).toMatch(/voice\/.*\.mp3(\?v=\d+)?$/);
@@ -33,10 +33,20 @@ describe('voiceClips mapping', () => {
     }
 
     for (const id of ALL_CHORD_IDS) {
-      const p1 = getSpokenChordPhrase(id, 'half-diminished');
-      const p2 = getSpokenChordPhrase(id, 'minor-seven-flat-five');
-      expect(getVoiceClipUrl(p1.text)).not.toBeNull();
-      expect(getVoiceClipUrl(p2.text)).not.toBeNull();
+      for (const announceTriadQuality of [false, true]) {
+        const p1 = getSpokenChordPhrase(
+          id,
+          'half-diminished',
+          announceTriadQuality,
+        );
+        const p2 = getSpokenChordPhrase(
+          id,
+          'minor-seven-flat-five',
+          announceTriadQuality,
+        );
+        expect(getVoiceClipUrl(p1.text)).not.toBeNull();
+        expect(getVoiceClipUrl(p2.text)).not.toBeNull();
+      }
     }
   });
 });
@@ -269,6 +279,9 @@ describe('meditative instruments & ambience', () => {
     const fresh = sanitizeSettings(null);
     expect(fresh.timbre).toBe('felt-piano');
     expect(fresh.ambience).toBe('warm-room');
+    expect(fresh.announceTriadQuality).toBe(false);
+
+    expect(sanitizeSettings({ announceTriadQuality: true }).announceTriadQuality).toBe(true);
 
     expect(sanitizeSettings({ timbre: 'electric-piano' }).timbre).toBe(
       'electric-piano',
