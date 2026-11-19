@@ -1,16 +1,16 @@
 const PHRASE_TO_FILENAME: Record<string, string> = {
-  'key of c': 'key-0.mp3',
-  'key of d flat': 'key-1.mp3',
-  'key of d': 'key-2.mp3',
-  'key of e flat': 'key-3.mp3',
-  'key of e': 'key-4.mp3',
-  'key of f': 'key-5.mp3',
-  'key of f sharp': 'key-6.mp3',
-  'key of g': 'key-7.mp3',
-  'key of a flat': 'key-8.mp3',
-  'key of a': 'key-9.mp3',
-  'key of b flat': 'key-10.mp3',
-  'key of b': 'key-11.mp3',
+  'key of c major': 'key-0.mp3',
+  'key of d flat major': 'key-1.mp3',
+  'key of d major': 'key-2.mp3',
+  'key of e flat major': 'key-3.mp3',
+  'key of e major': 'key-4.mp3',
+  'key of f major': 'key-5.mp3',
+  'key of f sharp major': 'key-6.mp3',
+  'key of g major': 'key-7.mp3',
+  'key of a flat major': 'key-8.mp3',
+  'key of a major': 'key-9.mp3',
+  'key of b flat major': 'key-10.mp3',
+  'key of b major': 'key-11.mp3',
   one: 'chord-I.mp3',
   'one major': 'chord-I-major.mp3',
   two: 'chord-ii-short.mp3',
@@ -36,18 +36,18 @@ const PHRASE_TO_FILENAME: Record<string, string> = {
 };
 
 export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
-  'Key of C',
-  'Key of D flat',
-  'Key of D',
-  'Key of E flat',
-  'Key of E',
-  'Key of F',
-  'Key of F sharp',
-  'Key of G',
-  'Key of A flat',
-  'Key of A',
-  'Key of B flat',
-  'Key of B',
+  'Key of C major',
+  'Key of D flat major',
+  'Key of D major',
+  'Key of E flat major',
+  'Key of E major',
+  'Key of F major',
+  'Key of F sharp major',
+  'Key of G major',
+  'Key of A flat major',
+  'Key of A major',
+  'Key of B flat major',
+  'Key of B major',
   'One',
   'One major',
   'Two',
@@ -77,7 +77,7 @@ export function getVoiceClipFilename(text: string): string | null {
   return PHRASE_TO_FILENAME[key] ?? null;
 }
 
-export const VOICE_CLIPS_VERSION = '3';
+export const VOICE_CLIPS_VERSION = '4';
 
 export function getVoiceClipUrl(text: string): string | null {
   const filename = getVoiceClipFilename(text);

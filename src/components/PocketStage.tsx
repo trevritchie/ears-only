@@ -20,9 +20,9 @@ function getPhaseLabel(
         : `Ready in ${keyInfo.displayName}`;
     case 'orienting_voice':
     case 'orienting_cadence':
-      return `Key of ${keyInfo.shortName}: orienting`;
+      return `Key of ${keyInfo.displayName}: orienting`;
     case 'inter_phase_pause':
-      return `Key of ${keyInfo.shortName}: listen`;
+      return `Key of ${keyInfo.displayName}: listen`;
     case 'question_playing':
     case 'repeat_pause':
       return `Listening · Pass ${snapshot.currentPass} of ${snapshot.totalPasses}`;

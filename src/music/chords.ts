@@ -33,6 +33,10 @@ export function getMajorKeyInfo(pitchClass: PitchClass): MajorKeyInfo {
   return MAJOR_KEYS[pitchClass];
 }
 
+export function getSpokenKeyPhrase(pitchClass: PitchClass): string {
+  return `Key of ${getMajorKeyInfo(pitchClass).spokenName} major`;
+}
+
 export const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11] as const;
 
 export function getMajorScalePitchClasses(key: PitchClass): Set<number> {

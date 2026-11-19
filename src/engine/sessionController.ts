@@ -12,6 +12,7 @@ import {
   getMajorKeyInfo,
   getScaleDegreePitchClass,
   getSpokenChordPhrase,
+  getSpokenKeyPhrase,
 } from '../music/chords';
 import {
   generateProgression,
@@ -240,7 +241,7 @@ export class SessionController {
     const keyName = getMajorKeyInfo(this.activeKey).displayName;
     let title = `${keyName} · Ready`;
     if (this.phase === 'orienting_voice' || this.phase === 'orienting_cadence') {
-      title = `Key of ${getMajorKeyInfo(this.activeKey).shortName}: Orienting`;
+      title = `Key of ${keyName}: Orienting`;
     } else if (
       this.phase === 'question_playing' ||
       this.phase === 'repeat_pause' ||
@@ -269,9 +270,7 @@ export class SessionController {
   }
 
   private getPreloadPhrases(): string[] {
-    const phrases: string[] = [
-      `Key of ${getMajorKeyInfo(this.activeKey).spokenName}`,
-    ];
+    const phrases: string[] = [getSpokenKeyPhrase(this.activeKey)];
     for (const chordId of this.settings.allowedChords) {
       phrases.push(
         getSpokenChordPhrase(
@@ -590,11 +589,11 @@ export class SessionController {
       this.emit();
 
       const capturedEpoch = this.epoch;
-      const keySpoken = `Key of ${getMajorKeyInfo(this.activeKey).spokenName}`;
+      const keySpoken = getSpokenKeyPhrase(this.activeKey);
       this.announcer.speak(keySpoken, {
         rate: this.settings.speechRate,
         voiceURI: this.settings.speechVoiceURI,
-        estimatedSyllables: 4,
+        estimatedSyllables: 6,
         volume: this.settings.voiceVolume,
         onEnd: () => {
           if (capturedEpoch !== this.epoch || !this.isRunning) return;

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AudioBufferAnnouncer } from '../../engine/audioAnnouncer';
-import { MAJOR_KEYS, ALL_CHORD_IDS, getSpokenChordPhrase } from '../../music/chords';
+import {
+  MAJOR_KEYS,
+  ALL_CHORD_IDS,
+  getSpokenChordPhrase,
+  getSpokenKeyPhrase,
+} from '../../music/chords';
 import {
   LEGACY_SETTINGS_STORAGE_KEY,
   loadSettings,
@@ -34,7 +39,7 @@ describe('voiceClips mapping', () => {
     }
 
     for (const key of MAJOR_KEYS) {
-      expect(getVoiceClipUrl(`Key of ${key.spokenName}`)).not.toBeNull();
+      expect(getVoiceClipUrl(getSpokenKeyPhrase(key.pitchClass))).not.toBeNull();
     }
 
     for (const id of ALL_CHORD_IDS) {
@@ -155,10 +160,10 @@ describe('AudioBufferAnnouncer', () => {
     const onStart = vi.fn();
     const onEnd = vi.fn();
 
-    const played = await announcer.trySpeak('Key of C', {
+    const played = await announcer.trySpeak('Key of C major', {
       rate: 1.15,
       voiceURI: null,
-      estimatedSyllables: 4,
+      estimatedSyllables: 6,
       onStart,
       onEnd,
     });
@@ -170,7 +175,9 @@ describe('AudioBufferAnnouncer', () => {
     expect(src.start).toHaveBeenCalledTimes(1);
 
     // Exact buffer duration now drives duration estimation
-    expect(announcer.estimateDurationSec(4, 1.0, 'Key of C')).toBeCloseTo(0.9, 5);
+    expect(
+      announcer.estimateDurationSec(6, 1.0, 'Key of C major'),
+    ).toBeCloseTo(0.9, 5);
 
     src.onended?.();
     expect(onEnd).toHaveBeenCalledTimes(1);

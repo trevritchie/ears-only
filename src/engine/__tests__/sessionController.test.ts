@@ -320,7 +320,7 @@ describe('SessionController state machine & scheduler', () => {
     expect(announcer.unlockCalls).toBe(1);
     expect(pocket.active).toBe(true);
     expect(controller.getSnapshot().phase).toBe('orienting_voice');
-    expect(announcer.spoken[0].text).toBe('Key of C');
+    expect(announcer.spoken[0].text).toBe('Key of C major');
 
     // Finish orientation speech
     announcer.finishLatest();
