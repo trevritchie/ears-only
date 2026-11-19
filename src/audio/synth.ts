@@ -99,7 +99,7 @@ export class PolySynth implements SynthEngine {
     convolver.buffer = createRoomImpulseResponse(ctx);
 
     const voiceBus = ctx.createGain();
-    voiceBus.gain.value = this.voiceVolume * 1.35;
+    voiceBus.gain.value = this.voiceVolume * 1.2;
 
     const compressor = ctx.createDynamicsCompressor();
     compressor.threshold.value = -6;
@@ -216,7 +216,7 @@ export class PolySynth implements SynthEngine {
     this.voiceVolume = Math.max(0, Math.min(1, volume));
     if (!this.ctx || !this.voiceBus) return;
     this.voiceBus.gain.setTargetAtTime(
-      this.voiceVolume * 1.35,
+      this.voiceVolume * 1.2,
       this.ctx.currentTime,
       0.04,
     );

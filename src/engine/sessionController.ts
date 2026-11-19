@@ -612,8 +612,10 @@ export class SessionController {
       text,
     );
     const maxBoosted = Math.max(this.settings.speechRate, 1.35);
+    // Keep recorded voice clips at exact natural pitch/rate (chord sustains
+    // cleanly until speech finishes); only gently speed up pitch-preserving TTS.
     const effectiveRate =
-      estSec > baseSlotSec
+      this.settings.voiceSource === 'speech-synthesis' && estSec > baseSlotSec
         ? Math.min(this.settings.speechRate * 1.15, maxBoosted)
         : this.settings.speechRate;
 

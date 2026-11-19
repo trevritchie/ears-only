@@ -63,6 +63,8 @@ export function getVoiceClipFilename(text: string): string | null {
   return PHRASE_TO_FILENAME[key] ?? null;
 }
 
+export const VOICE_CLIPS_VERSION = '2';
+
 export function getVoiceClipUrl(text: string): string | null {
   const filename = getVoiceClipFilename(text);
   if (!filename) return null;
@@ -71,5 +73,5 @@ export function getVoiceClipUrl(text: string): string | null {
       (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL) ||
     '/';
   const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
-  return `${base}voice/${filename}`;
+  return `${base}voice/${filename}?v=${VOICE_CLIPS_VERSION}`;
 }

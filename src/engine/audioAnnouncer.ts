@@ -121,8 +121,8 @@ export class AudioBufferAnnouncer {
         const now = ctx ? ctx.currentTime : 0;
         if (gain && ctx) {
           gain.gain.setValueAtTime(gain.gain.value, now);
-          gain.gain.linearRampToValueAtTime(0, now + 0.015);
-          source.stop(now + 0.02);
+          gain.gain.linearRampToValueAtTime(0, now + 0.03);
+          source.stop(now + 0.035);
         } else {
           source.stop();
         }

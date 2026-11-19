@@ -9,7 +9,7 @@ describe('voiceClips mapping', () => {
     expect(ALL_VOICE_CLIP_TEXTS).toHaveLength(27);
     for (const phrase of ALL_VOICE_CLIP_TEXTS) {
       const url = getVoiceClipUrl(phrase);
-      expect(url).toMatch(/voice\/.*\.mp3$/);
+      expect(url).toMatch(/voice\/.*\.mp3(\?v=\d+)?$/);
     }
 
     for (const key of MAJOR_KEYS) {
