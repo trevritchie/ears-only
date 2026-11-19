@@ -1,8 +1,8 @@
-# Ears Only
+# Paws Off
 
 Hands-free, pocket-ready chord progression ear trainer built with React, TypeScript, Vite, Tailwind CSS, and the Web Audio API.
 
-**Live App:** https://trevritchie.github.io/ears-only/
+**Live App:** https://trevritchie.github.io/paws-off/
 
 ## Features (v1)
 

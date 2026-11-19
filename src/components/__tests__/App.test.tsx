@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import App from '../../App';
 import { SETTINGS_STORAGE_KEY } from '../../types/settings';
 
-describe('Ears Only App UI', () => {
+describe('Paws Off App UI', () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
@@ -12,7 +12,7 @@ describe('Ears Only App UI', () => {
   it('renders primary controls (Key, Sound, Space, Mix, Drone switch) outside collapsed Advanced Settings', () => {
     const { container } = render(<App />);
 
-    expect(screen.getByText('Ears Only')).toBeInTheDocument();
+    expect(screen.getByText('Paws Off')).toBeInTheDocument();
     expect(container.textContent).not.toContain('—');
     expect(screen.getByText('Auto key')).toBeInTheDocument();
     expect(

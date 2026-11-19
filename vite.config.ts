@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  base: '/ears-only/',
+  base: '/paws-off/',
   plugins: [react(), tailwindcss()],
   test: {
     environment: 'jsdom',

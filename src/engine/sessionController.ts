@@ -287,7 +287,7 @@ export class SessionController {
 
     this.pocket.updateMetadata({
       title,
-      artist: 'Ears Only',
+      artist: 'Paws Off',
       album: `${keyName} · ${this.settings.bpm} BPM`,
     });
   }

@@ -119,8 +119,8 @@ const VALID_SECONDARY_DOMINANT_SET = new Set<string>(
   VALID_SECONDARY_DOMINANT_IDS,
 );
 
-export const LEGACY_SETTINGS_STORAGE_KEY = 'ears-only:settings:v1';
-export const SETTINGS_STORAGE_KEY = 'ears-only:settings:v2';
+export const LEGACY_SETTINGS_STORAGE_KEY = 'paws-off:settings:v1';
+export const SETTINGS_STORAGE_KEY = 'paws-off:settings:v2';
 export const VOLUME_CALIBRATION_VERSION = 2;
 
 export const DEFAULT_SETTINGS: SessionSettings = {

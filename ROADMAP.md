@@ -1,8 +1,8 @@
-# ears-only — Architecture & Post-v1 Roadmap
+# Paws Off: Architecture & Post-v1 Roadmap
 
 ## v1 Architecture Boundaries
 
-`ears-only` separates music theory, real-time synthesis, voice announcing, and session orchestration behind small interfaces so advanced musical features can be added without rewriting the lookahead scheduler or UI:
+Paws Off separates music theory, real-time synthesis, voice announcing, and session orchestration behind small interfaces so advanced musical features can be added without rewriting the lookahead scheduler or UI:
 
 | Abstraction | File | v1 Implementation | Post-v1 Extension Point |
 | :--- | :--- | :--- | :--- |

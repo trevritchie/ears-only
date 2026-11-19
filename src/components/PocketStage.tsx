@@ -69,7 +69,7 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <h1 className="text-lg font-semibold tracking-tight text-[#F3EFE6]">
-            Ears Only
+            Paws Off
           </h1>
           <span className="rounded-md border border-[#343C47] bg-[#252B33] px-2.5 py-0.5 text-xs font-medium text-[#F3EFE6]">
             {keyBadgeLabel}

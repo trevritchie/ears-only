@@ -162,7 +162,9 @@ describe('PocketManager lock-screen Media Session metadata', () => {
               translate: vi.fn(),
               scale: vi.fn(),
               beginPath: vi.fn(),
+              ellipse: vi.fn(),
               arc: vi.fn(),
+              fill: vi.fn(),
               stroke: vi.fn(),
             }),
             toDataURL: () => 'data:image/png;base64,iVBORw0KGgo=',
@@ -181,13 +183,13 @@ describe('PocketManager lock-screen Media Session metadata', () => {
       const pocket = new PocketManager();
       pocket.updateMetadata({
         title: 'Q1 Answer: I – IV – V',
-        artist: 'Ears Only',
+        artist: 'Paws Off',
         album: 'C Major · 120 BPM',
       });
 
       expect(fakeMediaSession.metadata).not.toBeNull();
       expect(fakeMediaSession.metadata!.title).toBe('Q1 Answer: I – IV – V');
-      expect(fakeMediaSession.metadata!.artist).toBe('Ears Only');
+      expect(fakeMediaSession.metadata!.artist).toBe('Paws Off');
       expect(fakeMediaSession.metadata!.album).toBe('C Major · 120 BPM');
       expect(fakeMediaSession.metadata!.artwork).toHaveLength(1);
       expect(fakeMediaSession.metadata!.artwork![0].src).toMatch(
