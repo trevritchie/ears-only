@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import App from '../../App';
@@ -9,7 +9,7 @@ describe('Ears Only App UI', () => {
     window.localStorage.clear();
   });
 
-  it('renders defaults with Advanced Settings collapsed, Basic Triads active, 80 BPM, length 4, repeats 2', () => {
+  it('renders primary controls (Key, Sound, Space, Mix, Drone switch) outside collapsed Advanced Settings', () => {
     const { container } = render(<App />);
 
     expect(screen.getByText('Ears Only')).toBeInTheDocument();
@@ -28,9 +28,49 @@ describe('Ears Only App UI', () => {
       screen.queryByText(/play chords behind answer voice/i),
     ).not.toBeInTheDocument();
 
-    // Core defaults
+    // Core defaults visible on primary screen
     expect(screen.getByText('80 BPM')).toBeInTheDocument();
     expect(screen.getByText('1.5s per chord')).toBeInTheDocument();
+
+    // Key mode visible in primary controls: Auto-rotate on the left (default), Fixed key on right
+    const keyModeGroup = screen.getByRole('group', { name: /key mode/i });
+    const keyModeButtons = within(keyModeGroup).getAllByRole('button');
+    expect(keyModeButtons.map((b) => b.textContent)).toEqual([
+      'Auto-rotate',
+      'Fixed key',
+    ]);
+    expect(keyModeButtons[0]).toHaveAttribute('aria-pressed', 'true');
+    expect(keyModeButtons[1]).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByLabelText(/rotate key every/i)).toBeInTheDocument();
+
+    // Sound, Space, Chords volume, Voice volume, and Drone switch visible outside Advanced
+    expect(
+      screen.getByRole('button', { name: /felt piano/i }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.getByRole('button', { name: /warm rhodes/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /velvet pad/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /soft vibes/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /electric piano/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /warm room/i }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText(/chords volume/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/voice volume/i)).toBeInTheDocument();
+
+    // Progressive Drone: switch visible, sub-controls hidden while OFF
+    expect(
+      screen.getByRole('switch', { name: /^enable drone$/i }),
+    ).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByLabelText(/drone volume/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /drone scale tone/i })).not.toBeInTheDocument();
 
     // Basic triads pressed
     expect(
@@ -79,70 +119,47 @@ describe('Ears Only App UI', () => {
     ).toBeInTheDocument();
   });
 
-  it('expands Advanced Settings, toggles viiø7 naming, and persists to localStorage', async () => {
+  it('updates primary Sound, Key, Drone, and Advanced Settings and persists to localStorage', async () => {
     const user = userEvent.setup();
     render(<App />);
 
+    // Switch Key mode to Fixed key right on primary screen and pick G Major
+    await user.click(screen.getByRole('button', { name: /fixed key/i }));
+    await user.click(screen.getByRole('button', { name: 'G Major' }));
+    expect(screen.getByText('G Major')).toBeInTheDocument();
+
+    // Switch back to Auto-rotate
+    await user.click(screen.getByRole('button', { name: /auto-rotate/i }));
+
+    // Primary Sound & Mix interactions (no need to expand Advanced!)
+    await user.click(screen.getByRole('button', { name: /soft pad/i }));
+    await user.click(screen.getByRole('button', { name: /lush hall/i }));
+    await user.click(screen.getByRole('switch', { name: /^enable drone$/i }));
+
+    // Drone sub-controls now expanded right in place
+    expect(screen.getByLabelText(/drone volume/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Scale tone 5' }));
+    await user.click(screen.getByRole('button', { name: 'High (+2)' }));
+
+    // Expand streamlined Advanced Settings
     await user.click(
       screen.getByRole('button', { name: /advanced settings/i }),
     );
     expect(
       screen.getByText(/play chords behind answer voice/i),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Seven half diminished/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Seven half diminished/i)).toBeInTheDocument();
 
-    // Switch to Minor 7b5 naming
+    // Switch to Minor 7b5 naming & Browser TTS
     await user.click(screen.getByRole('button', { name: 'Minor 7♭5' }));
     expect(
       screen.getByText(/Seven minor seven flat five/i),
     ).toBeInTheDocument();
 
-    // Verify all 6 instruments and 3 space modes render with Felt Piano + Warm Room default
-    expect(
-      screen.getByRole('button', { name: /felt piano/i }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      screen.getByRole('button', { name: /warm rhodes/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /velvet pad/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /soft vibes/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /electric piano/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /warm room/i }),
-    ).toHaveAttribute('aria-pressed', 'true');
-
-    // Switch to Soft Pad & Lush Hall, enable Drone, pick scale tone 5, and verify mix sliders exist
-    await user.click(screen.getByRole('button', { name: /soft pad/i }));
-    await user.click(screen.getByRole('button', { name: /lush hall/i }));
-    expect(screen.getByLabelText(/chords volume/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/voice volume/i)).toBeInTheDocument();
-    expect(screen.queryByText(/fixed pitch/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/chromatic drone/i)).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('switch', { name: /^enable drone$/i }));
-    await user.click(screen.getByRole('button', { name: 'Scale tone 5' }));
-    await user.click(screen.getByRole('button', { name: 'High (+2)' }));
-
-    // Default Key mode is Auto-rotate
-    expect(
-      screen.getByRole('button', { name: /auto-rotate/i }),
-    ).toHaveAttribute('aria-pressed', 'true');
-
-    // Default Voice source is Built-in (Pocket); switching to Browser TTS reveals Voice dropdown
     expect(
       screen.getByRole('button', { name: /built-in \(pocket\)/i }),
     ).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      screen.queryByLabelText(/^voice$/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^voice$/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /browser tts/i }));
     expect(screen.getByLabelText(/^voice$/i)).toBeInTheDocument();
@@ -157,6 +174,7 @@ describe('Ears Only App UI', () => {
     expect(saved.droneScaleDegree).toBe(5);
     expect(saved.droneOctave).toBe(2);
     expect(saved.keyMode).toBe('auto-rotate');
+    expect(saved.fixedKey).toBe(7);
     expect(saved.chordVolume).toBe(0.75);
     expect(saved.voiceVolume).toBe(0.65);
     expect(saved.droneVolume).toBe(0.5);

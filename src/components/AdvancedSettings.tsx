@@ -1,103 +1,21 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
-import { formatDroneNoteName } from '../audio/drone';
-import { INSTRUMENT_PRESETS } from '../audio/instruments';
-import { AMBIENCE_OPTIONS } from '../audio/reverb';
 import type { SpeechVoiceOption } from '../engine/speech';
-import {
-  getScaleDegreePitchClass,
-  MAJOR_KEYS,
-} from '../music/chords';
-import type {
-  AmbienceMode,
-  DroneOctave,
-  PitchClass,
-  ScaleDegree,
-  SessionSettings,
-  TimbreId,
-} from '../types/settings';
-
-const SCALE_DEGREES: readonly ScaleDegree[] = [1, 2, 3, 4, 5, 6, 7];
-
-const DRONE_OCTAVE_OPTIONS: readonly { value: DroneOctave; label: string }[] = [
-  { value: -1, label: 'Low (-1)' },
-  { value: 0, label: '0' },
-  { value: 1, label: '+1' },
-  { value: 2, label: 'High (+2)' },
-];
+import type { SessionSettings } from '../types/settings';
+import { SwitchRow } from './SwitchRow';
 
 interface AdvancedSettingsProps {
   settings: SessionSettings;
-  activeKey: PitchClass;
-  isRunning: boolean;
   voices: SpeechVoiceOption[];
   onUpdate: (patch: Partial<SessionSettings>) => void;
-  onPreviewSound: (timbre?: TimbreId, ambience?: AmbienceMode) => void;
-}
-
-interface SwitchRowProps {
-  id: string;
-  label: string;
-  description?: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}
-
-function SwitchRow({
-  id,
-  label,
-  description,
-  checked,
-  onChange,
-}: SwitchRowProps) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-1">
-      <div className="min-w-0">
-        <label htmlFor={id} className="block text-sm font-medium text-[#F3EFE6]">
-          {label}
-        </label>
-        {description && (
-          <p className="text-xs text-[#9CA3AE]">{description}</p>
-        )}
-      </div>
-      <button
-        id={id}
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
-          checked
-            ? 'border-[#E5A93C] bg-[#E5A93C]'
-            : 'border-[#343C47] bg-[#252B33]'
-        }`}
-      >
-        <span
-          className={`inline-block h-5 w-5 transform rounded-full transition-transform ${
-            checked
-              ? 'translate-x-6 bg-[#121417]'
-              : 'translate-x-1 bg-[#9CA3AE]'
-          }`}
-        />
-      </button>
-    </div>
-  );
 }
 
 export function AdvancedSettings({
   settings,
-  activeKey,
-  isRunning,
   voices,
   onUpdate,
-  onPreviewSound,
 }: AdvancedSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const droneResolvedPitch = formatDroneNoteName(
-    getScaleDegreePitchClass(activeKey, settings.droneScaleDegree),
-    settings.droneOctave,
-  );
-  const showResolvedDroneNote = isRunning || settings.keyMode === 'fixed';
 
   return (
     <section
@@ -109,7 +27,7 @@ export function AdvancedSettings({
         aria-expanded={isOpen}
         aria-controls="advanced-settings-panel"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex min-h-[52px] w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] rounded-2xl"
+        className="flex min-h-[52px] w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-semibold text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C]"
       >
         <span>Advanced settings</span>
         <ChevronDown
@@ -125,258 +43,11 @@ export function AdvancedSettings({
           id="advanced-settings-panel"
           className="space-y-6 border-t border-[#2B323B] px-4 pb-5 pt-4"
         >
-          {/* 1. Answer & Sound */}
+          {/* 1. Session & Answer Loop */}
           <div className="space-y-3">
             <h3 className="text-xs font-semibold text-[#9CA3AE]">
-              Answer &amp; sound
+              Session &amp; answer loop
             </h3>
-
-            <SwitchRow
-              id="toggle-chords-behind-answer"
-              label="Play chords behind answer voice"
-              description="Carves a gentle midrange EQ pocket behind the narrator"
-              checked={settings.playChordsBehindAnswer}
-              onChange={(checked) =>
-                onUpdate({ playChordsBehindAnswer: checked })
-              }
-            />
-
-            <SwitchRow
-              id="toggle-final-replay"
-              label="Play progression one final time after answer"
-              description="Adds an instrumental pass after the spoken answer"
-              checked={settings.playFinalReplayAfterAnswer}
-              onChange={(checked) =>
-                onUpdate({ playFinalReplayAfterAnswer: checked })
-              }
-            />
-
-            <div>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="block text-sm font-medium text-[#F3EFE6]">
-                  Sound
-                </span>
-                {!isRunning && (
-                  <span className="text-xs text-[#9CA3AE]">Tap to preview</span>
-                )}
-              </div>
-              <div
-                className="mt-1.5 grid grid-cols-2 gap-1.5"
-                role="group"
-                aria-label="Synth sound"
-              >
-                {INSTRUMENT_PRESETS.map((option) => {
-                  const active = settings.timbre === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => {
-                        onUpdate({ timbre: option.id });
-                        onPreviewSound(option.id, settings.ambience);
-                      }}
-                      className={`flex min-h-[52px] flex-col items-start justify-center rounded-xl border px-3 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
-                        active
-                          ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
-                          : 'border-[#343C47] bg-[#252B33] text-[#F3EFE6] hover:border-[#495463]'
-                      }`}
-                    >
-                      <span className="text-xs font-semibold leading-tight">
-                        {option.label}
-                      </span>
-                      <span
-                        className={`mt-0.5 text-[11px] leading-tight ${
-                          active ? 'text-[#E5A93C]/85' : 'text-[#9CA3AE]'
-                        }`}
-                      >
-                        {option.subtitle}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <span className="block text-sm font-medium text-[#F3EFE6]">
-                Space
-              </span>
-              <div
-                className="mt-1.5 grid grid-cols-3 gap-1.5"
-                role="group"
-                aria-label="Room ambience"
-              >
-                {AMBIENCE_OPTIONS.map((option) => {
-                  const active = settings.ambience === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => {
-                        onUpdate({ ambience: option.id });
-                        onPreviewSound(settings.timbre, option.id);
-                      }}
-                      className={`min-h-[40px] rounded-xl border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
-                        active
-                          ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
-                          : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-1">
-              <div>
-                <div className="flex items-baseline justify-between">
-                  <label
-                    htmlFor="chords-volume-slider"
-                    className="text-sm font-medium text-[#F3EFE6]"
-                  >
-                    Chords volume
-                  </label>
-                  <span className="text-sm font-semibold text-[#E5A93C] tabular-nums">
-                    {Math.round(settings.chordVolume * 100)}%
-                  </span>
-                </div>
-                <input
-                  id="chords-volume-slider"
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={settings.chordVolume}
-                  onChange={(e) =>
-                    onUpdate({ chordVolume: Number(e.target.value) })
-                  }
-                  className="studio-slider mt-1"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-baseline justify-between">
-                  <label
-                    htmlFor="voice-volume-slider"
-                    className="text-sm font-medium text-[#F3EFE6]"
-                  >
-                    Voice volume
-                  </label>
-                  <span className="text-sm font-semibold text-[#4FB3A4] tabular-nums">
-                    {Math.round(settings.voiceVolume * 100)}%
-                  </span>
-                </div>
-                <input
-                  id="voice-volume-slider"
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={settings.voiceVolume}
-                  onChange={(e) =>
-                    onUpdate({ voiceVolume: Number(e.target.value) })
-                  }
-                  className="studio-slider mt-1"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Key & Modulation */}
-          <div className="space-y-3 border-t border-[#2B323B] pt-4">
-            <h3 className="text-xs font-semibold text-[#9CA3AE]">
-              Key &amp; modulation
-            </h3>
-
-            <div
-              className="grid grid-cols-2 gap-1.5"
-              role="group"
-              aria-label="Key mode"
-            >
-              {(
-                [
-                  { id: 'fixed', label: 'Fixed key' },
-                  { id: 'auto-rotate', label: 'Auto-rotate' },
-                ] as const
-              ).map((option) => {
-                const active = settings.keyMode === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => onUpdate({ keyMode: option.id })}
-                    className={`min-h-[42px] rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
-                      active
-                        ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
-                        : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {settings.keyMode === 'fixed' ? (
-              <div>
-                <span className="block text-xs font-medium text-[#9CA3AE]">
-                  Major key
-                </span>
-                <div className="mt-1.5 grid grid-cols-6 gap-1.5">
-                  {MAJOR_KEYS.map((key) => {
-                    const active = settings.fixedKey === key.pitchClass;
-                    return (
-                      <button
-                        key={key.pitchClass}
-                        type="button"
-                        aria-pressed={active}
-                        aria-label={key.displayName}
-                        onClick={() => onUpdate({ fixedKey: key.pitchClass })}
-                        className={`flex min-h-[40px] items-center justify-center rounded-xl border text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
-                          active
-                            ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
-                            : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
-                        }`}
-                      >
-                        {key.shortName}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-baseline justify-between">
-                  <label
-                    htmlFor="rotate-every-slider"
-                    className="text-sm font-medium text-[#F3EFE6]"
-                  >
-                    Rotate key every
-                  </label>
-                  <span className="text-sm font-semibold text-[#E5A93C] tabular-nums">
-                    {settings.rotateEveryNQuestions} question
-                    {settings.rotateEveryNQuestions === 1 ? '' : 's'}
-                  </span>
-                </div>
-                <input
-                  id="rotate-every-slider"
-                  type="range"
-                  min={1}
-                  max={20}
-                  step={1}
-                  value={settings.rotateEveryNQuestions}
-                  onChange={(e) =>
-                    onUpdate({ rotateEveryNQuestions: Number(e.target.value) })
-                  }
-                  className="studio-slider mt-1"
-                />
-              </div>
-            )}
 
             <div>
               <span className="block text-sm font-medium text-[#F3EFE6]">
@@ -413,116 +84,29 @@ export function AdvancedSettings({
                 })}
               </div>
             </div>
-          </div>
-
-          {/* 3. Drone */}
-          <div className="space-y-3 border-t border-[#2B323B] pt-4">
-            <h3 className="text-xs font-semibold text-[#9CA3AE]">Drone</h3>
 
             <SwitchRow
-              id="toggle-drone"
-              label="Enable drone"
-              description="Warm reference tone matched to the active key"
-              checked={settings.droneEnabled}
-              onChange={(checked) => onUpdate({ droneEnabled: checked })}
+              id="toggle-chords-behind-answer"
+              label="Play chords behind answer voice"
+              description="Carves a gentle midrange EQ pocket behind the narrator"
+              checked={settings.playChordsBehindAnswer}
+              onChange={(checked) =>
+                onUpdate({ playChordsBehindAnswer: checked })
+              }
             />
 
-            <div>
-              <div className="flex items-baseline justify-between">
-                <span className="block text-sm font-medium text-[#F3EFE6]">
-                  Scale tone
-                </span>
-                <span className="text-xs font-medium text-[#4FB3A4] tabular-nums">
-                  {showResolvedDroneNote
-                    ? `Degree ${settings.droneScaleDegree} · ${droneResolvedPitch}`
-                    : `Degree ${settings.droneScaleDegree}`}
-                </span>
-              </div>
-              <div
-                className="mt-1.5 grid grid-cols-7 gap-1.5"
-                role="group"
-                aria-label="Drone scale tone"
-              >
-                {SCALE_DEGREES.map((degree) => {
-                  const active = settings.droneScaleDegree === degree;
-                  return (
-                    <button
-                      key={degree}
-                      type="button"
-                      aria-pressed={active}
-                      aria-label={`Scale tone ${degree}`}
-                      onClick={() => onUpdate({ droneScaleDegree: degree })}
-                      className={`flex min-h-[42px] items-center justify-center rounded-xl border text-sm font-semibold tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
-                        active
-                          ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
-                          : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
-                      }`}
-                    >
-                      {degree}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <span className="block text-sm font-medium text-[#F3EFE6]">
-                Octave
-              </span>
-              <div
-                className="mt-1.5 grid grid-cols-4 gap-1.5"
-                role="group"
-                aria-label="Drone octave"
-              >
-                {DRONE_OCTAVE_OPTIONS.map((option) => {
-                  const active = settings.droneOctave === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => onUpdate({ droneOctave: option.value })}
-                      className={`min-h-[40px] rounded-xl border px-2 text-xs font-semibold tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
-                        active
-                          ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
-                          : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-baseline justify-between">
-                <label
-                  htmlFor="drone-volume-slider"
-                  className="text-sm font-medium text-[#F3EFE6]"
-                >
-                  Drone volume
-                </label>
-                <span className="text-sm font-semibold text-[#4FB3A4] tabular-nums">
-                  {Math.round(settings.droneVolume * 100)}%
-                </span>
-              </div>
-              <input
-                id="drone-volume-slider"
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={settings.droneVolume}
-                onChange={(e) =>
-                  onUpdate({ droneVolume: Number(e.target.value) })
-                }
-                className="studio-slider mt-1"
-              />
-            </div>
+            <SwitchRow
+              id="toggle-final-replay"
+              label="Play progression one final time after answer"
+              description="Adds an instrumental pass after the spoken answer"
+              checked={settings.playFinalReplayAfterAnswer}
+              onChange={(checked) =>
+                onUpdate({ playFinalReplayAfterAnswer: checked })
+              }
+            />
           </div>
 
-          {/* 4. Timing & Speech */}
+          {/* 2. Timing & Speech */}
           <div className="space-y-3.5 border-t border-[#2B323B] pt-4">
             <h3 className="text-xs font-semibold text-[#9CA3AE]">
               Timing &amp; speech

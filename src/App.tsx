@@ -2,6 +2,7 @@ import { AdvancedSettings } from './components/AdvancedSettings';
 import { ChordSelector } from './components/ChordSelector';
 import { CoreControls } from './components/CoreControls';
 import { PocketStage } from './components/PocketStage';
+import { SoundAndMix } from './components/SoundAndMix';
 import { TransportBar } from './components/TransportBar';
 import { useEarTrainer } from './hooks/useEarTrainer';
 
@@ -39,13 +40,18 @@ export function App() {
 
       <CoreControls settings={settings} onUpdate={updateSettings} />
 
-      <AdvancedSettings
+      <SoundAndMix
         settings={settings}
         activeKey={snapshot.activeKey}
         isRunning={snapshot.isRunning}
-        voices={voices}
         onUpdate={updateSettings}
         onPreviewSound={previewSound}
+      />
+
+      <AdvancedSettings
+        settings={settings}
+        voices={voices}
+        onUpdate={updateSettings}
       />
     </main>
   );

@@ -1,3 +1,4 @@
+import { MAJOR_KEYS } from '../music/chords';
 import type { SessionSettings } from '../types/settings';
 
 interface CoreControlsProps {
@@ -16,7 +17,7 @@ export function CoreControls({ settings, onUpdate }: CoreControlsProps) {
 
   return (
     <section
-      aria-label="Session pacing controls"
+      aria-label="Session pacing and key controls"
       className="mt-3 space-y-4 rounded-2xl border border-[#2B323B] bg-[#1B1F24] p-4"
     >
       {/* Tempo */}
@@ -107,6 +108,97 @@ export function CoreControls({ settings, onUpdate }: CoreControlsProps) {
             })}
           </div>
         </div>
+      </div>
+
+      {/* Key mode & selection */}
+      <div className="space-y-3 border-t border-[#2B323B] pt-4">
+        <span className="block text-sm font-semibold text-[#F3EFE6]">Key</span>
+
+        <div
+          className="grid grid-cols-2 gap-1.5"
+          role="group"
+          aria-label="Key mode"
+        >
+          {(
+            [
+              { id: 'auto-rotate', label: 'Auto-rotate' },
+              { id: 'fixed', label: 'Fixed key' },
+            ] as const
+          ).map((option) => {
+            const active = settings.keyMode === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onUpdate({ keyMode: option.id })}
+                className={`min-h-[42px] rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
+                  active
+                    ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
+                    : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {settings.keyMode === 'auto-rotate' ? (
+          <div>
+            <div className="flex items-baseline justify-between">
+              <label
+                htmlFor="rotate-every-slider"
+                className="text-sm font-medium text-[#F3EFE6]"
+              >
+                Rotate key every
+              </label>
+              <span className="text-sm font-semibold text-[#E5A93C] tabular-nums">
+                {settings.rotateEveryNQuestions} question
+                {settings.rotateEveryNQuestions === 1 ? '' : 's'}
+              </span>
+            </div>
+            <input
+              id="rotate-every-slider"
+              type="range"
+              min={1}
+              max={20}
+              step={1}
+              value={settings.rotateEveryNQuestions}
+              onChange={(e) =>
+                onUpdate({ rotateEveryNQuestions: Number(e.target.value) })
+              }
+              className="studio-slider mt-1"
+            />
+          </div>
+        ) : (
+          <div>
+            <span className="block text-xs font-medium text-[#9CA3AE]">
+              Major key
+            </span>
+            <div className="mt-1.5 grid grid-cols-6 gap-1.5">
+              {MAJOR_KEYS.map((key) => {
+                const active = settings.fixedKey === key.pitchClass;
+                return (
+                  <button
+                    key={key.pitchClass}
+                    type="button"
+                    aria-pressed={active}
+                    aria-label={key.displayName}
+                    onClick={() => onUpdate({ fixedKey: key.pitchClass })}
+                    className={`flex min-h-[40px] items-center justify-center rounded-xl border text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
+                      active
+                        ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
+                        : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+                    }`}
+                  >
+                    {key.shortName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
