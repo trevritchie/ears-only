@@ -1,3 +1,4 @@
+import { speechSliderToVolume } from '../audio/volume';
 import type { VoiceSource } from '../types/settings';
 
 export interface SpeechVoiceOption {
@@ -181,7 +182,7 @@ export class WebSpeechAnnouncer implements VoiceAnnouncer {
     }
     utterance.rate = Math.max(0.5, Math.min(2.0, options.rate));
     utterance.pitch = 1.0;
-    utterance.volume = Math.max(0, Math.min(1, options.volume ?? 1.0));
+    utterance.volume = speechSliderToVolume(options.volume ?? 0.65);
 
     // Hold a strong reference so browsers do not GC the utterance before onend fires.
     this.activeUtterance = utterance;

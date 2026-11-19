@@ -132,8 +132,9 @@ describe('ears-only App UI', () => {
     expect(saved.droneEnabled).toBe(true);
     expect(saved.droneScaleDegree).toBe(5);
     expect(saved.keyMode).toBe('auto-rotate');
-    expect(saved.chordVolume).toBe(0.85);
-    expect(saved.voiceVolume).toBe(0.85);
+    expect(saved.chordVolume).toBe(0.75);
+    expect(saved.voiceVolume).toBe(0.65);
+    expect(saved.droneVolume).toBe(0.5);
     expect(saved.voiceSource).toBe('speech-synthesis');
   });
 });

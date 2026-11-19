@@ -63,6 +63,7 @@ export const VALID_CHORD_IDS: readonly ChordId[] = [
 const VALID_CHORD_SET = new Set<string>(VALID_CHORD_IDS);
 
 export const SETTINGS_STORAGE_KEY = 'ears-only:settings:v1';
+export const VOLUME_CALIBRATION_VERSION = 2;
 
 export const DEFAULT_SETTINGS: SessionSettings = {
   allowedChords: ['I', 'IV', 'V', 'vi'],
@@ -72,15 +73,15 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   playChordsBehindAnswer: true,
   playFinalReplayAfterAnswer: false,
   timbre: 'electric-piano',
-  chordVolume: 0.85,
-  voiceVolume: 0.85,
+  chordVolume: 0.75,
+  voiceVolume: 0.65,
   keyMode: 'auto-rotate',
   fixedKey: 0,
   rotateEveryNQuestions: 5,
   keyOrientation: 'cadence',
   droneEnabled: false,
   droneScaleDegree: 1,
-  droneVolume: 0.35,
+  droneVolume: 0.5,
   repeatPauseSec: 1.2,
   speechRate: 1.0,
   speechVoiceURI: null,
@@ -153,6 +154,9 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       ? obj.voiceSource
       : DEFAULT_SETTINGS.voiceSource;
 
+  const hasCalibratedVolumes =
+    obj.volumeCalibrationVersion === VOLUME_CALIBRATION_VERSION;
+
   return {
     allowedChords,
     bpm: clampInt(obj.bpm, 40, 160, DEFAULT_SETTINGS.bpm),
@@ -177,18 +181,12 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
         ? obj.playFinalReplayAfterAnswer
         : DEFAULT_SETTINGS.playFinalReplayAfterAnswer,
     timbre,
-    chordVolume: clampNumber(
-      obj.chordVolume,
-      0,
-      1,
-      DEFAULT_SETTINGS.chordVolume,
-    ),
-    voiceVolume: clampNumber(
-      obj.voiceVolume,
-      0,
-      1,
-      DEFAULT_SETTINGS.voiceVolume,
-    ),
+    chordVolume: hasCalibratedVolumes
+      ? clampNumber(obj.chordVolume, 0, 1, DEFAULT_SETTINGS.chordVolume)
+      : DEFAULT_SETTINGS.chordVolume,
+    voiceVolume: hasCalibratedVolumes
+      ? clampNumber(obj.voiceVolume, 0, 1, DEFAULT_SETTINGS.voiceVolume)
+      : DEFAULT_SETTINGS.voiceVolume,
     keyMode,
     fixedKey: sanitizePitchClass(obj.fixedKey, DEFAULT_SETTINGS.fixedKey),
     rotateEveryNQuestions: clampInt(
@@ -208,7 +206,9 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       7,
       DEFAULT_SETTINGS.droneScaleDegree,
     ) as ScaleDegree,
-    droneVolume: clampNumber(obj.droneVolume, 0, 1, DEFAULT_SETTINGS.droneVolume),
+    droneVolume: hasCalibratedVolumes
+      ? clampNumber(obj.droneVolume, 0, 1, DEFAULT_SETTINGS.droneVolume)
+      : DEFAULT_SETTINGS.droneVolume,
     repeatPauseSec: clampNumber(
       obj.repeatPauseSec,
       0.4,
@@ -245,7 +245,13 @@ export function saveSettings(settings: SessionSettings): void {
     if (typeof window === 'undefined' || !window.localStorage) {
       return;
     }
-    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        ...settings,
+        volumeCalibrationVersion: VOLUME_CALIBRATION_VERSION,
+      }),
+    );
   } catch {
     // Ignore storage quota or private-mode failures.
   }

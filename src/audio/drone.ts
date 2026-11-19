@@ -1,6 +1,7 @@
 import { midiToFreq } from '../music/voicing';
 import type { PitchClass } from '../types/settings';
 import type { PolySynth } from './synth';
+import { droneSliderToGain } from './volume';
 
 export interface DroneEngine {
   start(pitch: PitchClass, volume: number): void;
@@ -29,7 +30,7 @@ export class ChromaticDrone implements DroneEngine {
   private activeLayer: DroneLayer | null = null;
   private running = false;
   private currentPitch: PitchClass = 0;
-  private currentVolume = 0.35;
+  private currentVolume = 0.5;
 
   constructor(synth: PolySynth) {
     this.synth = synth;
@@ -49,8 +50,7 @@ export class ChromaticDrone implements DroneEngine {
   }
 
   private scaledVolume(volume: number): number {
-    // Keep drone conservative (max 0.24 effective gain) so it stays a calm halo.
-    return Math.max(0, Math.min(1, volume)) * 0.24;
+    return droneSliderToGain(volume);
   }
 
   private spawnLayer(

@@ -3,6 +3,11 @@ import { AudioBufferAnnouncer } from '../../engine/audioAnnouncer';
 import { MAJOR_KEYS, ALL_CHORD_IDS, getSpokenChordPhrase } from '../../music/chords';
 import { createSilentWavBuffer } from '../silentKeepAlive';
 import { ALL_VOICE_CLIP_TEXTS, getVoiceClipUrl } from '../voiceClips';
+import {
+  chordSliderToGain,
+  droneSliderToGain,
+  voiceSliderToGain,
+} from '../volume';
 
 describe('voiceClips mapping', () => {
   it('maps every key and chord spoken phrase to an mp3 URL', () => {
@@ -166,5 +171,22 @@ describe('AudioBufferAnnouncer', () => {
     announcer.cancel();
     src.onended?.();
     expect(onEnd).not.toHaveBeenCalled();
+  });
+});
+
+describe('perceptual volume calibration', () => {
+  it('maps 0 to exact silence and places default sweet spots cleanly in the middle of each slider', () => {
+    expect(chordSliderToGain(0)).toBe(0);
+    expect(voiceSliderToGain(0)).toBe(0);
+    expect(droneSliderToGain(0)).toBe(0);
+
+    // Chords 75% ~= 0.98, Voice 65% ~= 0.24, Drone 50% ~= 0.08
+    expect(chordSliderToGain(0.75)).toBeCloseTo(0.98, 1);
+    expect(voiceSliderToGain(0.65)).toBeCloseTo(0.24, 2);
+    expect(droneSliderToGain(0.5)).toBeCloseTo(0.08, 2);
+
+    // Strictly monotonic with useful headroom up to 100%
+    expect(voiceSliderToGain(1.0)).toBeGreaterThan(voiceSliderToGain(0.65) * 2);
+    expect(chordSliderToGain(1.0)).toBeGreaterThan(chordSliderToGain(0.75) * 1.5);
   });
 });

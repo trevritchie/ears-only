@@ -1,6 +1,7 @@
 import type { ScheduledNote } from '../music/arrangement';
 import { midiToFreq } from '../music/voicing';
 import type { TimbreId } from '../types/settings';
+import { chordSliderToGain, voiceSliderToGain } from './volume';
 
 export interface ChordVoiceHandle {
   release(atTime: number, customFadeSec?: number): void;
@@ -59,8 +60,8 @@ export class PolySynth implements SynthEngine {
   private activeVoices = new Set<InternalVoiceEntry>();
   private stateListeners = new Set<(state: string) => void>();
   private isDucked = false;
-  private chordVolume = 0.85;
-  private voiceVolume = 0.85;
+  private chordVolume = 0.75;
+  private voiceVolume = 0.65;
   private stateChangeBound: (() => void) | null = null;
 
   private initGraph(): AudioContext {
@@ -74,10 +75,10 @@ export class PolySynth implements SynthEngine {
     const ctx = new AudioCtx({ latencyHint: 'playback' });
 
     const chordBus = ctx.createGain();
-    chordBus.gain.value = this.isDucked ? 0.28 : 1.0;
+    chordBus.gain.value = this.isDucked ? 0.38 : 1.0;
 
     const chordLevelGain = ctx.createGain();
-    chordLevelGain.gain.value = this.chordVolume * 1.15;
+    chordLevelGain.gain.value = chordSliderToGain(this.chordVolume);
 
     const warmthFilter = ctx.createBiquadFilter();
     warmthFilter.type = 'lowpass';
@@ -99,7 +100,7 @@ export class PolySynth implements SynthEngine {
     convolver.buffer = createRoomImpulseResponse(ctx);
 
     const voiceBus = ctx.createGain();
-    voiceBus.gain.value = this.voiceVolume * 1.2;
+    voiceBus.gain.value = voiceSliderToGain(this.voiceVolume);
 
     const compressor = ctx.createDynamicsCompressor();
     compressor.threshold.value = -6;
@@ -198,7 +199,7 @@ export class PolySynth implements SynthEngine {
     this.isDucked = ducked;
     if (!this.ctx || !this.chordBus) return;
     const t = Math.max(this.ctx.currentTime, atTime ?? this.ctx.currentTime);
-    const target = ducked ? 0.28 : 1.0;
+    const target = ducked ? 0.38 : 1.0;
     this.chordBus.gain.setTargetAtTime(target, t, 0.06);
   }
 
@@ -206,7 +207,7 @@ export class PolySynth implements SynthEngine {
     this.chordVolume = Math.max(0, Math.min(1, volume));
     if (!this.ctx || !this.chordLevelGain) return;
     this.chordLevelGain.gain.setTargetAtTime(
-      this.chordVolume * 1.15,
+      chordSliderToGain(this.chordVolume),
       this.ctx.currentTime,
       0.04,
     );
@@ -216,7 +217,7 @@ export class PolySynth implements SynthEngine {
     this.voiceVolume = Math.max(0, Math.min(1, volume));
     if (!this.ctx || !this.voiceBus) return;
     this.voiceBus.gain.setTargetAtTime(
-      this.voiceVolume * 1.2,
+      voiceSliderToGain(this.voiceVolume),
       this.ctx.currentTime,
       0.04,
     );
