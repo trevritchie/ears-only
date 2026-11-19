@@ -308,6 +308,7 @@ export class PolySynth implements SynthEngine {
         ctx,
         bus,
         note,
+        index,
         baseStart,
         countScale,
         timbre,
@@ -341,6 +342,7 @@ export class PolySynth implements SynthEngine {
     ctx: AudioContext,
     destination: AudioNode,
     note: ScheduledNote,
+    voiceIndex: number,
     chordStart: number,
     countScale: number,
     timbre: TimbreId,
@@ -368,6 +370,7 @@ export class PolySynth implements SynthEngine {
       freq,
       peakGain,
       note,
+      voiceIndex,
       envGain,
       shared,
     });

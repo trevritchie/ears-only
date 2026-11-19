@@ -671,7 +671,7 @@ describe('SessionController state machine & scheduler', () => {
     expect(seventhRun.announcer.spoken[0].text).toBe('Two minor seven');
   });
 
-  it('supports default Left-to-Right stereo, Random voice-led stereo, and Stereo OFF centered mono', () => {
+  it('supports Left-to-Right, SATB choir, Random voice-led stereo, and Stereo OFF centered mono', () => {
     // Default: Stereo ON + Left to right ([-0.84, -0.28, 0.28, 0.84] low to high)
     expect(DEFAULT_SETTINGS.voicePanning).toBe(true);
     expect(DEFAULT_SETTINGS.voicePanningMode).toBe('left-to-right');
@@ -685,6 +685,21 @@ describe('SessionController state machine & scheduler', () => {
     ltrRun.controller.start();
     expect(ltrRun.synth.chords[0].notes.map((n) => n.pan)).toEqual([
       -0.84, -0.28, 0.28, 0.84,
+    ]);
+
+    // SATB choir section panning (independent of sound preset)
+    const satbRun = createHarness({
+      allowedChords: ['I', 'IV'],
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      timbre: 'velvet-pad',
+      voicePanning: true,
+      voicePanningMode: 'satb',
+    });
+    satbRun.controller.start();
+    expect(satbRun.synth.chords[0].notes.map((n) => n.pan)).toEqual([
+      0.24, -0.24, 0.72, -0.72,
     ]);
 
     // Stereo OFF: true centered mono (pan = 0 on every voice)

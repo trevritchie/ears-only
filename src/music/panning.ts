@@ -27,6 +27,19 @@ export function getOrderedVoicePans(voiceCount: number): number[] {
 }
 
 /**
+ * Traditional concert SATB choir section seating from the listener's perspective
+ * (left to right: Soprano -0.72, Tenor -0.24, Bass +0.24, Alto +0.72).
+ * Voices in Arranged chords are ordered [Bass, Tenor, Alto, Soprano].
+ */
+export function getSatbVoicePans(voiceCount: number): number[] {
+  if (voiceCount === 4) {
+    // [Bass, Tenor, Alto, Soprano] -> S (-0.72), T (-0.24), B (+0.24), A (+0.72)
+    return [0.24, -0.24, 0.72, -0.72];
+  }
+  return getOrderedVoicePans(voiceCount);
+}
+
+/**
  * Spreads voices evenly across the stereo field from -0.84 to +0.84 (wide,
  * almost hard pan for the outer two voices without 100% isolation), then
  * randomly shuffles which voice gets each stereo seat.

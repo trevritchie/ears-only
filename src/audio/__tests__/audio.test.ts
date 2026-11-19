@@ -325,14 +325,15 @@ describe('perceptual volume calibration', () => {
 });
 
 describe('meditative instruments & ambience', () => {
-  it('exposes all 6 instrument presets with Velvet Pad first and classic voices preserved', () => {
-    expect(INSTRUMENT_PRESETS).toHaveLength(6);
+  it('exposes all 7 instrument presets with Velvet Pad first, SATB Choir included, and classic voices preserved', () => {
+    expect(INSTRUMENT_PRESETS).toHaveLength(7);
     const ids = INSTRUMENT_PRESETS.map((p) => p.id);
     expect(ids).toEqual([
       'velvet-pad',
       'felt-piano',
       'warm-rhodes',
       'soft-vibes',
+      'satb-choir',
       'electric-piano',
       'soft-pad',
     ]);

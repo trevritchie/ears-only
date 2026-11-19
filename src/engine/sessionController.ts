@@ -25,6 +25,7 @@ import {
   computeProgressionVoicePans,
   generateRandomVoicePans,
   getOrderedVoicePans,
+  getSatbVoicePans,
 } from '../music/panning';
 import {
   defaultVoicingStrategy,
@@ -428,7 +429,9 @@ export class SessionController {
     const targetPans =
       mode === 'random' && randomPans
         ? randomPans
-        : getOrderedVoicePans(notes.length);
+        : mode === 'satb'
+          ? getSatbVoicePans(notes.length)
+          : getOrderedVoicePans(notes.length);
     return notes.map((note, idx) => ({
       ...note,
       pan: targetPans[idx] ?? 0,

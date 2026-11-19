@@ -17,10 +17,11 @@ export type TimbreId =
   | 'warm-rhodes'
   | 'velvet-pad'
   | 'soft-vibes'
+  | 'satb-choir'
   | 'electric-piano'
   | 'soft-pad';
 export type AmbienceMode = 'dry' | 'warm-room' | 'lush-hall';
-export type VoicePanningMode = 'left-to-right' | 'random';
+export type VoicePanningMode = 'left-to-right' | 'satb' | 'random';
 export type KeyMode = 'fixed' | 'auto-rotate';
 export type KeyOrientationMode = 'cadence' | 'tonic' | 'none';
 export type ScaleDegree = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -151,6 +152,7 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
     'warm-rhodes',
     'velvet-pad',
     'soft-vibes',
+    'satb-choir',
     'electric-piano',
     'soft-pad',
   ];
@@ -168,7 +170,9 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       : DEFAULT_SETTINGS.ambience;
 
   const voicePanningMode: VoicePanningMode =
-    obj.voicePanningMode === 'left-to-right' || obj.voicePanningMode === 'random'
+    obj.voicePanningMode === 'left-to-right' ||
+    obj.voicePanningMode === 'satb' ||
+    obj.voicePanningMode === 'random'
       ? obj.voicePanningMode
       : DEFAULT_SETTINGS.voicePanningMode;
 

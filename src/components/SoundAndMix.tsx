@@ -75,7 +75,12 @@ export function SoundAndMix({
                 aria-pressed={active}
                 onClick={() => {
                   onUpdate({ timbre: option.id });
-                  onPreviewSound(option.id, settings.ambience);
+                  onPreviewSound(
+                    option.id,
+                    settings.ambience,
+                    settings.voicePanning,
+                    settings.voicePanningMode,
+                  );
                 }}
                 className={`flex min-h-[52px] flex-col items-start justify-center rounded-xl border px-3 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
                   active
@@ -138,9 +143,11 @@ export function SoundAndMix({
           label="Stereo"
           description={
             settings.voicePanning
-              ? settings.voicePanningMode === 'left-to-right'
-                ? 'Spreads voices low to high from left to right'
-                : 'Random stereo seats that follow voice leading'
+              ? settings.voicePanningMode === 'satb'
+                ? 'Choir sections: Soprano left, Tenor/Bass center, Alto right'
+                : settings.voicePanningMode === 'left-to-right'
+                  ? 'Spreads voices low to high from left to right'
+                  : 'Random stereo seats that follow voice leading'
               : 'Centered mono mix'
           }
           checked={settings.voicePanning}
@@ -157,13 +164,14 @@ export function SoundAndMix({
 
         {settings.voicePanning && (
           <div
-            className="mt-2 grid grid-cols-2 gap-1.5"
+            className="mt-2 grid grid-cols-3 gap-1.5"
             role="group"
             aria-label="Stereo voice placement"
           >
             {(
               [
                 { id: 'left-to-right', label: 'Left to right' },
+                { id: 'satb', label: 'SATB choir' },
                 { id: 'random', label: 'Random' },
               ] as const
             ).map((option) => {
@@ -182,7 +190,7 @@ export function SoundAndMix({
                       option.id,
                     );
                   }}
-                  className={`min-h-[40px] rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
+                  className={`min-h-[40px] rounded-xl border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
                     active
                       ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
                       : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'

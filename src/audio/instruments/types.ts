@@ -11,6 +11,7 @@ export interface InstrumentPresetMeta {
 
 export interface VoiceSharedResources {
   feltPeriodicWave: PeriodicWave | null;
+  choirPeriodicWave: PeriodicWave | null;
   noiseBurstBuffer: AudioBuffer;
   warmTubeCurve: Float32Array<ArrayBuffer>;
 }
@@ -22,6 +23,7 @@ export interface VoiceBuildParams {
   freq: number;
   peakGain: number;
   note: ScheduledNote;
+  voiceIndex: number;
   envGain: GainNode;
   shared: VoiceSharedResources;
 }
@@ -40,12 +42,21 @@ export type InstrumentVoiceBuilder = (
 export function createVoiceSharedResources(
   ctx: AudioContext,
 ): VoiceSharedResources {
-  // Warm upright felt piano harmonic partials
+  // Warm upright felt piano harmonic partials + glottal choir harmonic rolloff
   let feltPeriodicWave: PeriodicWave | null = null;
+  let choirPeriodicWave: PeriodicWave | null = null;
   if (typeof ctx.createPeriodicWave === 'function') {
     const real = new Float32Array([0, 0, 0, 0, 0, 0, 0, 0]);
     const imag = new Float32Array([0, 1.0, 0.42, 0.22, 0.1, 0.045, 0.02, 0.008]);
     feltPeriodicWave = ctx.createPeriodicWave(real, imag, {
+      disableNormalization: false,
+    });
+
+    const choirReal = new Float32Array(12);
+    const choirImag = new Float32Array([
+      0, 1.0, 0.62, 0.38, 0.24, 0.16, 0.11, 0.075, 0.05, 0.032, 0.02, 0.012,
+    ]);
+    choirPeriodicWave = ctx.createPeriodicWave(choirReal, choirImag, {
       disableNormalization: false,
     });
   }
@@ -70,6 +81,7 @@ export function createVoiceSharedResources(
 
   return {
     feltPeriodicWave,
+    choirPeriodicWave,
     noiseBurstBuffer,
     warmTubeCurve,
   };

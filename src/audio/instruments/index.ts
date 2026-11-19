@@ -6,6 +6,7 @@ import {
   CLASSIC_SOFT_PAD_META,
 } from './classicVoices';
 import { buildFeltPianoVoice, FELT_PIANO_META } from './feltPiano';
+import { buildSatbChoirVoice, SATB_CHOIR_META } from './satbChoir';
 import { buildSoftVibesVoice, SOFT_VIBES_META } from './softVibes';
 import type {
   BuiltVoiceNodes,
@@ -21,6 +22,7 @@ export const INSTRUMENT_PRESETS: readonly InstrumentPresetMeta[] = [
   FELT_PIANO_META,
   WARM_RHODES_META,
   SOFT_VIBES_META,
+  SATB_CHOIR_META,
   CLASSIC_ELECTRIC_PIANO_META,
   CLASSIC_SOFT_PAD_META,
 ];
@@ -30,6 +32,7 @@ const META_BY_ID: Record<TimbreId, InstrumentPresetMeta> = {
   'warm-rhodes': WARM_RHODES_META,
   'velvet-pad': VELVET_PAD_META,
   'soft-vibes': SOFT_VIBES_META,
+  'satb-choir': SATB_CHOIR_META,
   'electric-piano': CLASSIC_ELECTRIC_PIANO_META,
   'soft-pad': CLASSIC_SOFT_PAD_META,
 };
@@ -39,6 +42,7 @@ const BUILDER_BY_ID: Record<TimbreId, InstrumentVoiceBuilder> = {
   'warm-rhodes': buildWarmRhodesVoice,
   'velvet-pad': buildVelvetPadVoice,
   'soft-vibes': buildSoftVibesVoice,
+  'satb-choir': buildSatbChoirVoice,
   'electric-piano': buildClassicElectricPianoVoice,
   'soft-pad': buildClassicSoftPadVoice,
 };

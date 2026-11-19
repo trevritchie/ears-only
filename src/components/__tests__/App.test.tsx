@@ -84,6 +84,9 @@ describe('Ears Only App UI', () => {
       screen.getByRole('button', { name: /soft vibes/i }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('button', { name: /satb choir.*vocal harmony/i }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole('button', { name: /electric piano/i }),
     ).toBeInTheDocument();
     expect(
@@ -98,6 +101,7 @@ describe('Ears Only App UI', () => {
     const stereoButtons = within(stereoGroup).getAllByRole('button');
     expect(stereoButtons.map((b) => b.textContent)).toEqual([
       'Left to right',
+      'SATB choir',
       'Random',
     ]);
     expect(stereoButtons[0]).toHaveAttribute('aria-pressed', 'true');
