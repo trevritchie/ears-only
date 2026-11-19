@@ -1,8 +1,9 @@
-function createSilentWavBlobUrl(): string {
-  const sampleRate = 8000;
+export function createSilentWavBuffer(): ArrayBuffer {
+  const sampleRate = 44100;
   const numChannels = 1;
   const bitsPerSample = 16;
-  const numSamples = sampleRate; // 1 second
+  const durationSec = 2;
+  const numSamples = sampleRate * durationSec;
   const dataByteSize = numSamples * numChannels * (bitsPerSample / 8);
   const buffer = new ArrayBuffer(44 + dataByteSize);
   const view = new DataView(buffer);
@@ -27,13 +28,22 @@ function createSilentWavBlobUrl(): string {
   writeString(36, 'data');
   view.setUint32(40, dataByteSize, true);
 
-  // Use an alternating +/-1 LSB (-90 dB) floor rather than digital zeros
-  // so mobile OS audio pipelines keep the background playback session active.
+  // Hann-windowed 200 Hz sine of +/-1 LSB (-90 dB): strictly zero at loop
+  // endpoints (i=0 and i=numSamples-1) so iOS hardware resampling never clicks.
+  const freqHz = 200;
   for (let i = 0; i < numSamples; i++) {
-    view.setInt16(44 + i * 2, i % 2 === 0 ? 1 : -1, true);
+    const hann = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (numSamples - 1)));
+    const sample = Math.round(
+      Math.sin((2 * Math.PI * freqHz * i) / sampleRate) * hann,
+    );
+    view.setInt16(44 + i * 2, sample, true);
   }
 
-  const blob = new Blob([buffer], { type: 'audio/wav' });
+  return buffer;
+}
+
+function createSilentWavBlobUrl(): string {
+  const blob = new Blob([createSilentWavBuffer()], { type: 'audio/wav' });
   return URL.createObjectURL(blob);
 }
 

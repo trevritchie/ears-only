@@ -23,8 +23,9 @@ import {
   type VoicingStrategy,
 } from '../music/voicing';
 import type { ChordId, PitchClass, SessionSettings } from '../types/settings';
+import { HybridVoiceAnnouncer } from './hybridAnnouncer';
 import { PocketManager, type PocketController } from './pocketManager';
-import { WebSpeechAnnouncer, type VoiceAnnouncer } from './speech';
+import { type VoiceAnnouncer } from './speech';
 import { WorkerClock, type SchedulerClock } from './workerTimer';
 
 export type SessionPhase =
@@ -145,7 +146,12 @@ export class SessionController {
       (ownsSynth
         ? new ChromaticDrone(synthInstance as PolySynth)
         : new ChromaticDrone(synthInstance as PolySynth));
-    this.announcer = deps.announcer ?? new WebSpeechAnnouncer();
+    this.announcer =
+      deps.announcer ??
+      new HybridVoiceAnnouncer(
+        synthInstance as PolySynth,
+        initialSettings.voiceSource,
+      );
     this.clock = deps.clock ?? new WorkerClock(25);
     this.pocket = deps.pocket ?? new PocketManager();
     this.voicingStrategy = deps.voicingStrategy ?? defaultVoicingStrategy;
@@ -254,9 +260,22 @@ export class SessionController {
     });
   }
 
+  private getPreloadPhrases(): string[] {
+    const phrases: string[] = [
+      `Key of ${getMajorKeyInfo(this.activeKey).spokenName}`,
+    ];
+    for (const chordId of this.settings.allowedChords) {
+      phrases.push(
+        getSpokenChordPhrase(chordId, this.settings.halfDimNaming).text,
+      );
+    }
+    return phrases;
+  }
+
   start(): void {
     if (this.isRunning) return;
 
+    this.announcer.setMode?.(this.settings.voiceSource);
     // Must run synchronously inside user tap gesture for iOS/Android permissions.
     this.announcer.unlock();
     void this.synth.ensureContext();
@@ -284,6 +303,7 @@ export class SessionController {
         ? pickRandomKey(this.rng)
         : this.settings.fixedKey;
 
+    this.announcer.preload?.(this.getPreloadPhrases());
     this.syncDrone();
     this.synth.setDucked(false, this.synth.getCurrentTime());
 
@@ -370,12 +390,15 @@ export class SessionController {
       ...next,
       allowedChords: [...next.allowedChords],
     };
+    this.announcer.setMode?.(next.voiceSource);
 
     if (!this.isRunning) {
       this.activeKey = next.fixedKey;
       this.emit();
       return;
     }
+
+    this.announcer.preload?.(this.getPreloadPhrases());
 
     // Update live drone parameters immediately
     if (next.droneEnabled) {
@@ -582,6 +605,7 @@ export class SessionController {
     const estSec = this.announcer.estimateDurationSec(
       estimatedSyllables,
       this.settings.speechRate,
+      text,
     );
     const maxBoosted = Math.max(this.settings.speechRate, 1.35);
     const effectiveRate =

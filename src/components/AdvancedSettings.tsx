@@ -484,30 +484,73 @@ export function AdvancedSettings({
             </div>
 
             <div>
-              <label
-                htmlFor="speech-voice-select"
-                className="block text-sm font-medium text-[#F3EFE6]"
+              <span className="block text-sm font-medium text-[#F3EFE6]">
+                Voice source
+              </span>
+              <div
+                className="mt-1.5 grid grid-cols-2 gap-1.5"
+                role="group"
+                aria-label="Voice source"
               >
-                Voice
-              </label>
-              <select
-                id="speech-voice-select"
-                value={settings.speechVoiceURI ?? ''}
-                onChange={(e) =>
-                  onUpdate({
-                    speechVoiceURI: e.target.value ? e.target.value : null,
-                  })
-                }
-                className="mt-1.5 min-h-[44px] w-full rounded-xl border border-[#343C47] bg-[#252B33] px-3 text-sm text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C]"
-              >
-                <option value="">Auto (best English voice)</option>
-                {voices.map((voice) => (
-                  <option key={voice.voiceURI} value={voice.voiceURI}>
-                    {voice.name} ({voice.lang})
-                  </option>
-                ))}
-              </select>
+                {(
+                  [
+                    { id: 'recorded', label: 'Built-in (Pocket)' },
+                    { id: 'speech-synthesis', label: 'Browser TTS' },
+                  ] as const
+                ).map((option) => {
+                  const active = settings.voiceSource === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => onUpdate({ voiceSource: option.id })}
+                      className={`min-h-[42px] rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
+                        active
+                          ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
+                          : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {settings.voiceSource === 'recorded' && (
+                <p className="mt-1.5 text-xs text-[#9CA3AE]">
+                  Plays through Web Audio — works when your iPhone screen is
+                  locked.
+                </p>
+              )}
             </div>
+
+            {settings.voiceSource === 'speech-synthesis' && (
+              <div>
+                <label
+                  htmlFor="speech-voice-select"
+                  className="block text-sm font-medium text-[#F3EFE6]"
+                >
+                  Voice
+                </label>
+                <select
+                  id="speech-voice-select"
+                  value={settings.speechVoiceURI ?? ''}
+                  onChange={(e) =>
+                    onUpdate({
+                      speechVoiceURI: e.target.value ? e.target.value : null,
+                    })
+                  }
+                  className="mt-1.5 min-h-[44px] w-full rounded-xl border border-[#343C47] bg-[#252B33] px-3 text-sm text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C]"
+                >
+                  <option value="">Auto (system default)</option>
+                  {voices.map((voice) => (
+                    <option key={voice.voiceURI} value={voice.voiceURI}>
+                      {voice.name} ({voice.lang})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
       )}

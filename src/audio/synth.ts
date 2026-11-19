@@ -25,28 +25,8 @@ interface InternalVoiceEntry {
   release: (atTime: number, customFadeSec?: number) => void;
 }
 
-function cancelFutureAutomation(
-  param: AudioParam,
-  atTime: number,
-  fallbackValue: number,
-): void {
-  const extended = param as AudioParam & {
-    cancelAndHoldAtTime?: (cancelTime: number) => void;
-  };
-  if (typeof extended.cancelAndHoldAtTime === 'function') {
-    try {
-      extended.cancelAndHoldAtTime(atTime);
-      return;
-    } catch {
-      // Fallback below for engines where cancelAndHoldAtTime rejects.
-    }
-  }
-  param.cancelScheduledValues(atTime);
-  param.setValueAtTime(fallbackValue, atTime);
-}
-
 function createRoomImpulseResponse(ctx: AudioContext): AudioBuffer {
-  const durationSec = 1.1;
+  const durationSec = 0.55;
   const length = Math.floor(ctx.sampleRate * durationSec);
   const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
 
@@ -55,12 +35,12 @@ function createRoomImpulseResponse(ctx: AudioContext): AudioBuffer {
     let prev = 0;
     for (let i = 0; i < length; i++) {
       const progress = i / length;
-      const decay = Math.pow(1 - progress, 2.8);
+      const decay = Math.pow(1 - progress, 3.2);
       const white = Math.random() * 2 - 1;
-      // Gentle one-pole lowpass to warm up the early room reflections.
-      const filtered = prev * 0.68 + white * 0.32;
+      // Lighter, natural room air without muffled mud.
+      const filtered = prev * 0.42 + white * 0.58;
       prev = filtered;
-      channelData[i] = filtered * decay * 0.45;
+      channelData[i] = filtered * decay * 0.35;
     }
   }
   return buffer;
@@ -69,6 +49,7 @@ function createRoomImpulseResponse(ctx: AudioContext): AudioBuffer {
 export class PolySynth implements SynthEngine {
   private ctx: AudioContext | null = null;
   private chordBus: GainNode | null = null;
+  private voiceBus: GainNode | null = null;
   private compressor: DynamicsCompressorNode | null = null;
   private graphNodes: AudioNode[] = [];
 
@@ -85,42 +66,52 @@ export class PolySynth implements SynthEngine {
       (window as unknown as { webkitAudioContext: typeof AudioContext })
         .webkitAudioContext;
 
-    const ctx = new AudioCtx({ latencyHint: 'interactive' });
+    const ctx = new AudioCtx({ latencyHint: 'playback' });
 
     const chordBus = ctx.createGain();
-    chordBus.gain.value = 1.0;
+    chordBus.gain.value = this.isDucked ? 0.28 : 1.0;
 
     const warmthFilter = ctx.createBiquadFilter();
     warmthFilter.type = 'lowpass';
-    warmthFilter.frequency.value = 3200;
-    warmthFilter.Q.value = 0.6;
+    warmthFilter.frequency.value = 6500;
+    warmthFilter.Q.value = 0.5;
+
+    const presenceShelf = ctx.createBiquadFilter();
+    presenceShelf.type = 'highshelf';
+    presenceShelf.frequency.value = 1600;
+    presenceShelf.gain.value = 1.5;
 
     const dryGain = ctx.createGain();
-    dryGain.gain.value = 0.88;
+    dryGain.gain.value = 0.92;
 
     const wetGain = ctx.createGain();
-    wetGain.gain.value = 0.14;
+    wetGain.gain.value = 0.1;
 
     const convolver = ctx.createConvolver();
     convolver.buffer = createRoomImpulseResponse(ctx);
 
+    const voiceBus = ctx.createGain();
+    voiceBus.gain.value = 1.15;
+
     const compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -10;
+    compressor.threshold.value = -6;
     compressor.knee.value = 12;
-    compressor.ratio.value = 4;
-    compressor.attack.value = 0.005;
-    compressor.release.value = 0.15;
+    compressor.ratio.value = 3;
+    compressor.attack.value = 0.008;
+    compressor.release.value = 0.18;
 
     const masterGain = ctx.createGain();
-    masterGain.gain.value = 0.9;
+    masterGain.gain.value = 0.95;
 
     chordBus.connect(warmthFilter);
-    warmthFilter.connect(dryGain);
-    warmthFilter.connect(convolver);
+    warmthFilter.connect(presenceShelf);
+    presenceShelf.connect(dryGain);
+    presenceShelf.connect(convolver);
     convolver.connect(wetGain);
 
     dryGain.connect(compressor);
     wetGain.connect(compressor);
+    voiceBus.connect(compressor);
     compressor.connect(masterGain);
     masterGain.connect(ctx.destination);
 
@@ -134,13 +125,16 @@ export class PolySynth implements SynthEngine {
 
     this.ctx = ctx;
     this.chordBus = chordBus;
+    this.voiceBus = voiceBus;
     this.compressor = compressor;
     this.graphNodes = [
       chordBus,
       warmthFilter,
+      presenceShelf,
       dryGain,
       wetGain,
       convolver,
+      voiceBus,
       compressor,
       masterGain,
     ];
@@ -161,11 +155,17 @@ export class PolySynth implements SynthEngine {
   }
 
   getAudioContext(): AudioContext | null {
-    return this.ctx;
+    return this.ctx ?? this.initGraph();
   }
 
   getCompressorInput(): AudioNode | null {
+    if (!this.ctx) this.initGraph();
     return this.compressor;
+  }
+
+  getVoiceInput(): AudioNode | null {
+    if (!this.ctx) this.initGraph();
+    return this.voiceBus;
   }
 
   getCurrentTime(): number {
@@ -187,8 +187,8 @@ export class PolySynth implements SynthEngine {
     this.isDucked = ducked;
     if (!this.ctx || !this.chordBus) return;
     const t = Math.max(this.ctx.currentTime, atTime ?? this.ctx.currentTime);
-    const target = ducked ? 0.32 : 1.0;
-    this.chordBus.gain.setTargetAtTime(target, t, 0.08);
+    const target = ducked ? 0.28 : 1.0;
+    this.chordBus.gain.setTargetAtTime(target, t, 0.06);
   }
 
   playChord(
@@ -198,9 +198,6 @@ export class PolySynth implements SynthEngine {
   ): ChordVoiceHandle {
     const ctx = this.initGraph();
     const bus = this.chordBus!;
-    if (this.isDucked) {
-      bus.gain.setValueAtTime(0.32, Math.max(ctx.currentTime, startTime));
-    }
 
     const baseStart = Math.max(ctx.currentTime + 0.005, startTime);
     const countScale = 1 / Math.sqrt(Math.max(1, notes.length));
@@ -246,86 +243,134 @@ export class PolySynth implements SynthEngine {
     countScale: number,
     timbre: TimbreId,
   ): (atTime: number, customFadeSec?: number) => void {
-    const t0 = chordStart + note.offsetSec;
+    const now = ctx.currentTime;
+    const t0 = Math.max(now + 0.004, chordStart + note.offsetSec);
     const freq = midiToFreq(note.midi);
-    const peakGain = note.velocity * countScale * 0.46;
+    const peakGain = note.velocity * countScale * 0.44;
 
+    // Dual-gain architecture: envGain handles attack/decay undisturbed while
+    // releaseGain stays strictly at 1.0 until linear fade-out to zero.
     const envGain = ctx.createGain();
-    envGain.gain.setValueAtTime(0.0001, t0);
+    envGain.gain.setValueAtTime(0, now);
+    envGain.gain.setValueAtTime(0, t0);
+
+    const releaseGain = ctx.createGain();
+    releaseGain.gain.setValueAtTime(1.0, now);
 
     const noteFilter = ctx.createBiquadFilter();
     noteFilter.type = 'lowpass';
+    noteFilter.Q.value = 0.65;
 
     const oscs: OscillatorNode[] = [];
-    const auxNodes: AudioNode[] = [noteFilter, envGain];
+    const auxNodes: AudioNode[] = [noteFilter, envGain, releaseGain];
 
-    let defaultReleaseSec = 0.14;
-    let sustainRatio = 0.52;
+    let defaultReleaseSec = 0.15;
 
     if (timbre === 'electric-piano') {
-      defaultReleaseSec = 0.14;
-      sustainRatio = 0.52;
+      defaultReleaseSec = 0.15;
+      const attackSec = 0.014;
+      const sustainRatio = 0.56;
 
-      const attackSec = 0.018;
-      noteFilter.frequency.setValueAtTime(note.role === 'bass' ? 1400 : 2300, t0);
-      noteFilter.frequency.exponentialRampToValueAtTime(
-        note.role === 'bass' ? 700 : 1150,
-        t0 + 1.1,
-      );
-      noteFilter.Q.value = 0.7;
+      const startCutoff = note.role === 'bass' ? 2400 : 5200;
+      const endCutoff = note.role === 'bass' ? 1300 : 2500;
+      noteFilter.frequency.setValueAtTime(startCutoff, now);
+      noteFilter.frequency.setValueAtTime(startCutoff, t0);
+      noteFilter.frequency.exponentialRampToValueAtTime(endCutoff, t0 + 1.4);
 
       // Fundamental sine
       const fundOsc = ctx.createOscillator();
       fundOsc.type = 'sine';
       fundOsc.frequency.setValueAtTime(freq, t0);
       const fundGain = ctx.createGain();
-      fundGain.gain.value = 1.0;
+      fundGain.gain.value = 0.78;
       fundOsc.connect(fundGain);
       fundGain.connect(noteFilter);
       oscs.push(fundOsc);
       auxNodes.push(fundGain);
 
-      // Gentle 2nd-harmonic bell tine
+      // Warm sustained triangle body
+      const bodyOsc = ctx.createOscillator();
+      bodyOsc.type = 'triangle';
+      bodyOsc.frequency.setValueAtTime(freq, t0);
+      const bodyGain = ctx.createGain();
+      bodyGain.gain.value = 0.26;
+      bodyOsc.connect(bodyGain);
+      bodyGain.connect(noteFilter);
+      oscs.push(bodyOsc);
+      auxNodes.push(bodyGain);
+
+      // Rhodes 2nd-harmonic bell tine
       const tineOsc = ctx.createOscillator();
-      tineOsc.type = 'triangle';
+      tineOsc.type = 'sine';
       tineOsc.frequency.setValueAtTime(freq * 2, t0);
       const tineGain = ctx.createGain();
-      tineGain.gain.setValueAtTime(note.role === 'bass' ? 0.08 : 0.16, t0);
-      tineGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.28);
+      const tineInit = note.role === 'bass' ? 0.14 : 0.28;
+      tineGain.gain.setValueAtTime(tineInit, now);
+      tineGain.gain.setValueAtTime(tineInit, t0);
+      tineGain.gain.setTargetAtTime(
+        note.role === 'bass' ? 0.04 : 0.09,
+        t0 + attackSec,
+        0.25,
+      );
       tineOsc.connect(tineGain);
       tineGain.connect(noteFilter);
       oscs.push(tineOsc);
       auxNodes.push(tineGain);
 
-      // Subtle 3rd harmonic warmth on attack
+      // 3rd harmonic clarity
       const thirdOsc = ctx.createOscillator();
       thirdOsc.type = 'sine';
       thirdOsc.frequency.setValueAtTime(freq * 3, t0);
       const thirdGain = ctx.createGain();
-      thirdGain.gain.setValueAtTime(note.role === 'bass' ? 0.02 : 0.04, t0);
-      thirdGain.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.1);
+      const thirdInit = note.role === 'bass' ? 0.05 : 0.11;
+      thirdGain.gain.setValueAtTime(thirdInit, now);
+      thirdGain.gain.setValueAtTime(thirdInit, t0);
+      thirdGain.gain.setTargetAtTime(
+        note.role === 'bass' ? 0.01 : 0.025,
+        t0 + attackSec,
+        0.16,
+      );
       thirdOsc.connect(thirdGain);
       thirdGain.connect(noteFilter);
       oscs.push(thirdOsc);
       auxNodes.push(thirdGain);
 
-      envGain.gain.linearRampToValueAtTime(peakGain, t0 + attackSec);
-      envGain.gain.setTargetAtTime(peakGain * sustainRatio, t0 + attackSec, 0.45);
-    } else {
-      // Soft Pad timbre
-      defaultReleaseSec = 0.28;
-      sustainRatio = 0.85;
+      // Subtle 4th-harmonic chime on harmony attack
+      if (note.role !== 'bass') {
+        const chimeOsc = ctx.createOscillator();
+        chimeOsc.type = 'sine';
+        chimeOsc.frequency.setValueAtTime(freq * 4, t0);
+        const chimeGain = ctx.createGain();
+        chimeGain.gain.setValueAtTime(0.05, now);
+        chimeGain.gain.setValueAtTime(0.05, t0);
+        chimeGain.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.16);
+        chimeOsc.connect(chimeGain);
+        chimeGain.connect(noteFilter);
+        oscs.push(chimeOsc);
+        auxNodes.push(chimeGain);
+      }
 
-      const attackSec = 0.14;
-      noteFilter.frequency.setValueAtTime(note.role === 'bass' ? 900 : 1450, t0);
-      noteFilter.Q.value = 0.7;
+      envGain.gain.linearRampToValueAtTime(peakGain, t0 + attackSec);
+      envGain.gain.setTargetAtTime(
+        peakGain * sustainRatio,
+        t0 + attackSec,
+        0.55,
+      );
+    } else {
+      // Clear, airy Soft Pad timbre
+      defaultReleaseSec = 0.26;
+      const attackSec = 0.11;
+
+      const cutoff = note.role === 'bass' ? 1800 : 3000;
+      noteFilter.frequency.setValueAtTime(cutoff, now);
+      noteFilter.frequency.setValueAtTime(cutoff, t0);
 
       const oscA = ctx.createOscillator();
       oscA.type = 'triangle';
       oscA.frequency.setValueAtTime(freq, t0);
       oscA.detune.setValueAtTime(-4, t0);
       const gainA = ctx.createGain();
-      gainA.gain.value = 0.52;
+      gainA.gain.value = 0.48;
       oscA.connect(gainA);
       gainA.connect(noteFilter);
       oscs.push(oscA);
@@ -336,17 +381,30 @@ export class PolySynth implements SynthEngine {
       oscB.frequency.setValueAtTime(freq, t0);
       oscB.detune.setValueAtTime(4, t0);
       const gainB = ctx.createGain();
-      gainB.gain.value = 0.56;
+      gainB.gain.value = 0.48;
       oscB.connect(gainB);
       gainB.connect(noteFilter);
       oscs.push(oscB);
       auxNodes.push(gainB);
 
+      if (note.role !== 'bass') {
+        const airOsc = ctx.createOscillator();
+        airOsc.type = 'sine';
+        airOsc.frequency.setValueAtTime(freq * 2, t0);
+        const airGain = ctx.createGain();
+        airGain.gain.value = 0.12;
+        airOsc.connect(airGain);
+        airGain.connect(noteFilter);
+        oscs.push(airOsc);
+        auxNodes.push(airGain);
+      }
+
       envGain.gain.linearRampToValueAtTime(peakGain * 0.85, t0 + attackSec);
     }
 
     noteFilter.connect(envGain);
-    envGain.connect(destination);
+    envGain.connect(releaseGain);
+    releaseGain.connect(destination);
 
     let noteReleased = false;
     const cleanup = () => {
@@ -380,15 +438,11 @@ export class PolySynth implements SynthEngine {
 
       const fadeSec = customFadeSec ?? defaultReleaseSec;
       const releaseStart = Math.max(atTime, ctx.currentTime, t0 + 0.02);
-      const fallbackLevel =
-        releaseStart <= ctx.currentTime + 0.01
-          ? Math.max(0.0001, envGain.gain.value)
-          : Math.max(0.0001, peakGain * sustainRatio);
 
-      cancelFutureAutomation(envGain.gain, releaseStart, fallbackLevel);
-      envGain.gain.linearRampToValueAtTime(0.0001, releaseStart + fadeSec);
+      releaseGain.gain.setValueAtTime(1.0, releaseStart);
+      releaseGain.gain.linearRampToValueAtTime(0, releaseStart + fadeSec);
 
-      const stopAt = releaseStart + fadeSec + 0.025;
+      const stopAt = releaseStart + fadeSec + 0.04;
       for (const osc of oscs) {
         try {
           osc.stop(stopAt);
@@ -431,6 +485,7 @@ export class PolySynth implements SynthEngine {
     this.graphNodes = [];
     this.ctx = null;
     this.chordBus = null;
+    this.voiceBus = null;
     this.compressor = null;
   }
 }

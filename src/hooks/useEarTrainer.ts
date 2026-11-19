@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PolySynth } from '../audio/synth';
+import { HybridVoiceAnnouncer } from '../engine/hybridAnnouncer';
 import {
   SessionController,
   type SessionSnapshot,
 } from '../engine/sessionController';
-import { WebSpeechAnnouncer, type SpeechVoiceOption } from '../engine/speech';
+import type { SpeechVoiceOption } from '../engine/speech';
 import {
   loadSettings,
   saveSettings,
@@ -25,9 +27,10 @@ function createInitialSnapshot(settings: SessionSettings): SessionSnapshot {
     orientationChords: [],
     wakeLockActive: false,
     speechAvailable:
-      typeof window !== 'undefined' &&
-      'speechSynthesis' in window &&
-      typeof SpeechSynthesisUtterance !== 'undefined',
+      settings.voiceSource === 'recorded' ||
+      (typeof window !== 'undefined' &&
+        'speechSynthesis' in window &&
+        typeof SpeechSynthesisUtterance !== 'undefined'),
   };
 }
 
@@ -42,17 +45,22 @@ export function useEarTrainer() {
   const [voices, setVoices] = useState<SpeechVoiceOption[]>([]);
 
   const controllerRef = useRef<SessionController | null>(null);
-  const announcerRef = useRef<WebSpeechAnnouncer | null>(null);
 
   useEffect(() => {
-    const announcer = new WebSpeechAnnouncer();
-    announcerRef.current = announcer;
+    const synth = new PolySynth();
+    const announcer = new HybridVoiceAnnouncer(
+      synth,
+      settingsRef.current.voiceSource,
+    );
     setVoices(announcer.getVoices());
     const unsubVoices = announcer.onVoicesChanged(() => {
       setVoices(announcer.getVoices());
     });
 
-    const controller = new SessionController(settingsRef.current, { announcer });
+    const controller = new SessionController(settingsRef.current, {
+      synth,
+      announcer,
+    });
     controllerRef.current = controller;
     const unsubController = controller.subscribe((nextSnapshot) => {
       setSnapshot(nextSnapshot);
@@ -63,7 +71,6 @@ export function useEarTrainer() {
       unsubController();
       controller.dispose();
       controllerRef.current = null;
-      announcerRef.current = null;
     };
   }, []);
 

@@ -17,6 +17,7 @@ export type KeyMode = 'fixed' | 'auto-rotate';
 export type KeyOrientationMode = 'cadence' | 'tonic' | 'none';
 export type DroneMode = 'fixed' | 'match-key';
 export type HalfDimNaming = 'half-diminished' | 'minor-seven-flat-five';
+export type VoiceSource = 'recorded' | 'speech-synthesis';
 
 export interface SessionSettings {
   allowedChords: ChordId[];
@@ -38,6 +39,7 @@ export interface SessionSettings {
   speechRate: number;
   speechVoiceURI: string | null;
   halfDimNaming: HalfDimNaming;
+  voiceSource: VoiceSource;
 }
 
 export const VALID_CHORD_IDS: readonly ChordId[] = [
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   speechRate: 1.0,
   speechVoiceURI: null,
   halfDimNaming: 'half-diminished',
+  voiceSource: 'recorded',
 };
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -148,6 +151,11 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       ? obj.halfDimNaming
       : DEFAULT_SETTINGS.halfDimNaming;
 
+  const voiceSource: VoiceSource =
+    obj.voiceSource === 'recorded' || obj.voiceSource === 'speech-synthesis'
+      ? obj.voiceSource
+      : DEFAULT_SETTINGS.voiceSource;
+
   return {
     allowedChords,
     bpm: clampInt(obj.bpm, 40, 160, DEFAULT_SETTINGS.bpm),
@@ -200,6 +208,7 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
         ? obj.speechVoiceURI
         : null,
     halfDimNaming,
+    voiceSource,
   };
 }
 

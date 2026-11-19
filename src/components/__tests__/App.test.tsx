@@ -104,11 +104,23 @@ describe('ears-only App UI', () => {
       screen.getByRole('switch', { name: /enable chromatic drone/i }),
     );
 
+    // Default Voice source is Built-in (Pocket); switching to Browser TTS reveals Voice dropdown
+    expect(
+      screen.getByRole('button', { name: /built-in \(pocket\)/i }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.queryByLabelText(/^voice$/i),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /browser tts/i }));
+    expect(screen.getByLabelText(/^voice$/i)).toBeInTheDocument();
+
     const saved = JSON.parse(
       window.localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}',
     );
     expect(saved.halfDimNaming).toBe('minor-seven-flat-five');
     expect(saved.timbre).toBe('soft-pad');
     expect(saved.droneEnabled).toBe(true);
+    expect(saved.voiceSource).toBe('speech-synthesis');
   });
 });
