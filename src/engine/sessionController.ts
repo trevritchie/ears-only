@@ -239,7 +239,7 @@ export class SessionController {
     const keyName = getMajorKeyInfo(this.activeKey).displayName;
     let title = `${keyName} · Ready`;
     if (this.phase === 'orienting_voice' || this.phase === 'orienting_cadence') {
-      title = `Key of ${getMajorKeyInfo(this.activeKey).shortName} — Orienting`;
+      title = `Key of ${getMajorKeyInfo(this.activeKey).shortName}: Orienting`;
     } else if (
       this.phase === 'question_playing' ||
       this.phase === 'repeat_pause' ||
@@ -262,7 +262,7 @@ export class SessionController {
 
     this.pocket.updateMetadata({
       title,
-      artist: 'ears-only',
+      artist: 'Ears Only',
       album: `${keyName} · ${this.settings.bpm} BPM`,
     });
   }

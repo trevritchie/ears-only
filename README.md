@@ -1,4 +1,4 @@
-# ears-only
+# Ears Only
 
 Hands-free, pocket-ready chord progression ear trainer built with React, TypeScript, Vite, Tailwind CSS, and the Web Audio API.
 

@@ -618,7 +618,7 @@ export function AdvancedSettings({
               </div>
               {settings.voiceSource === 'recorded' && (
                 <p className="mt-1.5 text-xs text-[#9CA3AE]">
-                  Plays through Web Audio — works when your iPhone screen is
+                  Plays through Web Audio. Works when your iPhone screen is
                   locked.
                 </p>
               )}

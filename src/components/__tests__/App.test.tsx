@@ -4,15 +4,16 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import App from '../../App';
 import { SETTINGS_STORAGE_KEY } from '../../types/settings';
 
-describe('ears-only App UI', () => {
+describe('Ears Only App UI', () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
   it('renders defaults with Advanced Settings collapsed, Basic Triads active, 80 BPM, length 4, repeats 2', () => {
-    render(<App />);
+    const { container } = render(<App />);
 
-    expect(screen.getByText('ears-only')).toBeInTheDocument();
+    expect(screen.getByText('Ears Only')).toBeInTheDocument();
+    expect(container.textContent).not.toContain('—');
     expect(screen.getByText('Auto key')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /start pocket mode/i }),

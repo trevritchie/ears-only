@@ -23,38 +23,13 @@ export interface PocketController {
   dispose(): void;
 }
 
-function createArtworkDataUrl(): string | null {
-  if (typeof document === 'undefined') return null;
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    ctx.fillStyle = '#121417';
-    ctx.fillRect(0, 0, 256, 256);
-
-    ctx.strokeStyle = '#2B323B';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(14, 14, 228, 228);
-
-    const bars = [
-      { x: 64, y: 96, h: 64, color: '#E5A93C' },
-      { x: 98, y: 64, h: 128, color: '#E5A93C' },
-      { x: 132, y: 80, h: 96, color: '#4FB3A4' },
-      { x: 166, y: 54, h: 148, color: '#E5A93C' },
-    ];
-    for (const bar of bars) {
-      ctx.fillStyle = bar.color;
-      ctx.beginPath();
-      ctx.roundRect(bar.x, bar.y, 18, bar.h, 9);
-      ctx.fill();
-    }
-    return canvas.toDataURL('image/png');
-  } catch {
-    return null;
-  }
+function getArtworkUrl(): string {
+  const rawBase =
+    (typeof import.meta !== 'undefined' &&
+      (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL) ||
+    '/';
+  const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  return `${base}icon-512.png`;
 }
 
 export class PocketManager implements PocketController {
@@ -166,16 +141,16 @@ export class PocketManager implements PocketController {
     if (typeof MediaMetadata === 'undefined') return;
 
     if (this.artworkUrl === null) {
-      this.artworkUrl = createArtworkDataUrl();
+      this.artworkUrl = getArtworkUrl();
     }
 
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: metadata.title,
-        artist: metadata.artist ?? 'ears-only',
+        artist: metadata.artist ?? 'Ears Only',
         album: metadata.album,
         artwork: this.artworkUrl
-          ? [{ src: this.artworkUrl, sizes: '256x256', type: 'image/png' }]
+          ? [{ src: this.artworkUrl, sizes: '512x512', type: 'image/png' }]
           : [],
       });
       navigator.mediaSession.playbackState = this.active ? 'playing' : 'paused';

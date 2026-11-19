@@ -20,9 +20,9 @@ function getPhaseLabel(
         : `Ready in ${keyInfo.displayName}`;
     case 'orienting_voice':
     case 'orienting_cadence':
-      return `Key of ${keyInfo.shortName} — orienting`;
+      return `Key of ${keyInfo.shortName}: orienting`;
     case 'inter_phase_pause':
-      return `Key of ${keyInfo.shortName} — listen`;
+      return `Key of ${keyInfo.shortName}: listen`;
     case 'question_playing':
     case 'repeat_pause':
       return `Listening · Pass ${snapshot.currentPass} of ${snapshot.totalPasses}`;
@@ -62,7 +62,7 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <h1 className="text-lg font-semibold tracking-tight text-[#F3EFE6]">
-            ears-only
+            Ears Only
           </h1>
           <span className="rounded-md border border-[#343C47] bg-[#252B33] px-2.5 py-0.5 text-xs font-medium text-[#F3EFE6]">
             {keyBadgeLabel}
@@ -165,9 +165,10 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
                       {CHORD_DEFS[chordId].symbol}
                     </span>
                   ) : (
-                    <span className="text-lg font-medium select-none" aria-hidden="true">
-                      —
-                    </span>
+                    <span
+                      className="h-1 w-4 rounded-full bg-current opacity-40"
+                      aria-hidden="true"
+                    />
                   )}
                 </div>
               );
