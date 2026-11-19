@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AudioBufferAnnouncer } from '../../engine/audioAnnouncer';
 import { MAJOR_KEYS, ALL_CHORD_IDS, getSpokenChordPhrase } from '../../music/chords';
-import { sanitizeSettings } from '../../types/settings';
+import {
+  LEGACY_SETTINGS_STORAGE_KEY,
+  loadSettings,
+  sanitizeSettings,
+  saveSettings,
+} from '../../types/settings';
 import { formatDroneNoteName, pitchClassToDroneMidi } from '../drone';
 import { INSTRUMENT_PRESETS } from '../instruments';
 import { computeVoicePan } from '../instruments/types';
@@ -213,13 +218,13 @@ describe('perceptual volume calibration', () => {
 });
 
 describe('meditative instruments & ambience', () => {
-  it('exposes all 6 instrument presets including preserved classic voices', () => {
+  it('exposes all 6 instrument presets with Velvet Pad first and classic voices preserved', () => {
     expect(INSTRUMENT_PRESETS).toHaveLength(6);
     const ids = INSTRUMENT_PRESETS.map((p) => p.id);
     expect(ids).toEqual([
+      'velvet-pad',
       'felt-piano',
       'warm-rhodes',
-      'velvet-pad',
       'soft-vibes',
       'electric-piano',
       'soft-pad',
@@ -275,9 +280,9 @@ describe('meditative instruments & ambience', () => {
     }
   });
 
-  it('defaults fresh settings to felt-piano + warm-room, 80% mix, final replay ON, length 4 (max 8), while preserving classic saved timbres', () => {
+  it('defaults fresh settings to velvet-pad + warm-room, 80% mix, final replay ON, length 4 (max 8), and force-resets legacy v1 storage', () => {
     const fresh = sanitizeSettings(null);
-    expect(fresh.timbre).toBe('felt-piano');
+    expect(fresh.timbre).toBe('velvet-pad');
     expect(fresh.ambience).toBe('warm-room');
     expect(fresh.announceTriadQuality).toBe(false);
     expect(fresh.playChordsBehindAnswer).toBe(true);
@@ -285,6 +290,25 @@ describe('meditative instruments & ambience', () => {
     expect(fresh.progressionLength).toBe(4);
     expect(fresh.chordVolume).toBe(0.8);
     expect(fresh.voiceVolume).toBe(0.8);
+
+    // Legacy v1 storage is discarded and cleared in favor of fresh v2 defaults
+    window.localStorage.clear();
+    window.localStorage.setItem(
+      LEGACY_SETTINGS_STORAGE_KEY,
+      JSON.stringify({ timbre: 'felt-piano', chordVolume: 0.5, bpm: 120 }),
+    );
+    const migrated = loadSettings();
+    expect(migrated.timbre).toBe('velvet-pad');
+    expect(migrated.chordVolume).toBe(0.8);
+    expect(migrated.bpm).toBe(80);
+    expect(window.localStorage.getItem(LEGACY_SETTINGS_STORAGE_KEY)).toBeNull();
+
+    // New v2 settings persist normally after reset
+    saveSettings({ ...migrated, bpm: 96, timbre: 'felt-piano' });
+    const reloaded = loadSettings();
+    expect(reloaded.bpm).toBe(96);
+    expect(reloaded.timbre).toBe('felt-piano');
+    window.localStorage.clear();
 
     expect(sanitizeSettings({ announceTriadQuality: true }).announceTriadQuality).toBe(true);
     expect(sanitizeSettings({ progressionLength: 8 }).progressionLength).toBe(8);

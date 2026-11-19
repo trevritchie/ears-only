@@ -73,7 +73,8 @@ export const VALID_CHORD_IDS: readonly ChordId[] = [
 
 const VALID_CHORD_SET = new Set<string>(VALID_CHORD_IDS);
 
-export const SETTINGS_STORAGE_KEY = 'ears-only:settings:v1';
+export const LEGACY_SETTINGS_STORAGE_KEY = 'ears-only:settings:v1';
+export const SETTINGS_STORAGE_KEY = 'ears-only:settings:v2';
 export const VOLUME_CALIBRATION_VERSION = 2;
 
 export const DEFAULT_SETTINGS: SessionSettings = {
@@ -83,7 +84,7 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   questionRepeats: 2,
   playChordsBehindAnswer: true,
   playFinalReplayAfterAnswer: true,
-  timbre: 'felt-piano',
+  timbre: 'velvet-pad',
   ambience: 'warm-room',
   chordVolume: 0.8,
   voiceVolume: 0.8,
@@ -270,6 +271,10 @@ export function loadSettings(): SessionSettings {
   try {
     if (typeof window === 'undefined' || !window.localStorage) {
       return sanitizeSettings(null);
+    }
+    // Force-reset pre-v2 saved settings once so existing devices pick up new defaults.
+    if (window.localStorage.getItem(LEGACY_SETTINGS_STORAGE_KEY) !== null) {
+      window.localStorage.removeItem(LEGACY_SETTINGS_STORAGE_KEY);
     }
     const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) {

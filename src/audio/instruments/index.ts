@@ -17,9 +17,9 @@ import { buildVelvetPadVoice, VELVET_PAD_META } from './velvetPad';
 import { buildWarmRhodesVoice, WARM_RHODES_META } from './warmRhodes';
 
 export const INSTRUMENT_PRESETS: readonly InstrumentPresetMeta[] = [
+  VELVET_PAD_META,
   FELT_PIANO_META,
   WARM_RHODES_META,
-  VELVET_PAD_META,
   SOFT_VIBES_META,
   CLASSIC_ELECTRIC_PIANO_META,
   CLASSIC_SOFT_PAD_META,
@@ -44,13 +44,13 @@ const BUILDER_BY_ID: Record<TimbreId, InstrumentVoiceBuilder> = {
 };
 
 export function getInstrumentPreset(id: TimbreId): InstrumentPresetMeta {
-  return META_BY_ID[id] ?? FELT_PIANO_META;
+  return META_BY_ID[id] ?? VELVET_PAD_META;
 }
 
 export function buildInstrumentVoice(
   id: TimbreId,
   params: VoiceBuildParams,
 ): BuiltVoiceNodes {
-  const builder = BUILDER_BY_ID[id] ?? buildFeltPianoVoice;
+  const builder = BUILDER_BY_ID[id] ?? buildVelvetPadVoice;
   return builder(params);
 }

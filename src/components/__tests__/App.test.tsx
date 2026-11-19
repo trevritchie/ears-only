@@ -70,14 +70,15 @@ describe('Ears Only App UI', () => {
     expect(screen.getByLabelText(/rotate key every/i)).toBeInTheDocument();
 
     // Sound, Space, Chords volume, Voice volume, and Drone switch visible outside Advanced
+    const soundGroup = screen.getByRole('group', { name: /synth sound/i });
+    const soundButtons = within(soundGroup).getAllByRole('button');
+    expect(soundButtons[0].textContent).toMatch(/velvet pad/i);
+    expect(soundButtons[0]).toHaveAttribute('aria-pressed', 'true');
     expect(
       screen.getByRole('button', { name: /felt piano/i }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    ).toHaveAttribute('aria-pressed', 'false');
     expect(
       screen.getByRole('button', { name: /warm rhodes/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /velvet pad/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /soft vibes/i }),
