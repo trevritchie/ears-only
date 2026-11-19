@@ -1,0 +1,125 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  SessionController,
+  type SessionSnapshot,
+} from '../engine/sessionController';
+import { WebSpeechAnnouncer, type SpeechVoiceOption } from '../engine/speech';
+import {
+  loadSettings,
+  saveSettings,
+  type SessionSettings,
+} from '../types/settings';
+
+function createInitialSnapshot(settings: SessionSettings): SessionSnapshot {
+  return {
+    phase: 'idle',
+    isRunning: false,
+    activeKey: settings.fixedKey,
+    questionNumber: 0,
+    currentPass: 1,
+    totalPasses: settings.questionRepeats,
+    progression: [],
+    activeChordIndex: -1,
+    revealedCount: 0,
+    orientationStepIndex: -1,
+    orientationChords: [],
+    wakeLockActive: false,
+    speechAvailable:
+      typeof window !== 'undefined' &&
+      'speechSynthesis' in window &&
+      typeof SpeechSynthesisUtterance !== 'undefined',
+  };
+}
+
+export function useEarTrainer() {
+  const [settings, setSettings] = useState<SessionSettings>(() => loadSettings());
+  const settingsRef = useRef<SessionSettings>(settings);
+  settingsRef.current = settings;
+
+  const [snapshot, setSnapshot] = useState<SessionSnapshot>(() =>
+    createInitialSnapshot(settings),
+  );
+  const [voices, setVoices] = useState<SpeechVoiceOption[]>([]);
+
+  const controllerRef = useRef<SessionController | null>(null);
+  const announcerRef = useRef<WebSpeechAnnouncer | null>(null);
+
+  useEffect(() => {
+    const announcer = new WebSpeechAnnouncer();
+    announcerRef.current = announcer;
+    setVoices(announcer.getVoices());
+    const unsubVoices = announcer.onVoicesChanged(() => {
+      setVoices(announcer.getVoices());
+    });
+
+    const controller = new SessionController(settingsRef.current, { announcer });
+    controllerRef.current = controller;
+    const unsubController = controller.subscribe((nextSnapshot) => {
+      setSnapshot(nextSnapshot);
+    });
+
+    return () => {
+      unsubVoices();
+      unsubController();
+      controller.dispose();
+      controllerRef.current = null;
+      announcerRef.current = null;
+    };
+  }, []);
+
+  // Sync visual chord glow on animation frames while running.
+  useEffect(() => {
+    if (!snapshot.isRunning) return;
+
+    let frameId = 0;
+    const step = () => {
+      controllerRef.current?.syncVisualCues();
+      frameId = window.requestAnimationFrame(step);
+    };
+    frameId = window.requestAnimationFrame(step);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [snapshot.isRunning]);
+
+  const updateSettings = useCallback(
+    (updater: Partial<SessionSettings> | ((prev: SessionSettings) => SessionSettings)) => {
+      setSettings((prev) => {
+        const next =
+          typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
+        saveSettings(next);
+        controllerRef.current?.updateSettings(next);
+        return next;
+      });
+    },
+    [],
+  );
+
+  const start = useCallback(() => {
+    controllerRef.current?.start();
+  }, []);
+
+  const stop = useCallback(() => {
+    controllerRef.current?.stop();
+  }, []);
+
+  const replayQuestion = useCallback(() => {
+    controllerRef.current?.replayQuestion();
+  }, []);
+
+  const skipToAnswer = useCallback(() => {
+    controllerRef.current?.skipToAnswer();
+  }, []);
+
+  return {
+    settings,
+    updateSettings,
+    snapshot,
+    voices,
+    start,
+    stop,
+    replayQuestion,
+    skipToAnswer,
+  };
+}

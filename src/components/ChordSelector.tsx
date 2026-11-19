@@ -1,0 +1,136 @@
+import { useState } from 'react';
+import {
+  CHORD_DEFS,
+  CHORD_PRESETS,
+  SEVENTH_IDS,
+  TRIAD_IDS,
+} from '../music/chords';
+import type { ChordId } from '../types/settings';
+
+interface ChordSelectorProps {
+  allowedChords: ChordId[];
+  onChange: (next: ChordId[]) => void;
+}
+
+function setsMatch(a: readonly ChordId[], b: readonly ChordId[]): boolean {
+  if (a.length !== b.length) return false;
+  const setA = new Set(a);
+  return b.every((id) => setA.has(id));
+}
+
+export function ChordSelector({ allowedChords, onChange }: ChordSelectorProps) {
+  const [minGuardNotice, setMinGuardNotice] = useState(false);
+  const selectedSet = new Set(allowedChords);
+
+  const toggleChord = (id: ChordId) => {
+    if (selectedSet.has(id)) {
+      if (allowedChords.length <= 1) {
+        setMinGuardNotice(true);
+        return;
+      }
+      setMinGuardNotice(false);
+      onChange(allowedChords.filter((item) => item !== id));
+    } else {
+      setMinGuardNotice(false);
+      onChange([...allowedChords, id]);
+    }
+  };
+
+  return (
+    <section
+      aria-label="Allowed chords"
+      className="mt-4 rounded-2xl border border-[#2B323B] bg-[#1B1F24] p-4"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-[#F3EFE6]">Allowed chords</h2>
+        <span className="text-xs text-[#9CA3AE] tabular-nums">
+          {allowedChords.length} active
+        </span>
+      </div>
+
+      {/* Quick-select presets */}
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {CHORD_PRESETS.map((preset) => {
+          const isCurrent = setsMatch(allowedChords, preset.chords);
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => {
+                setMinGuardNotice(false);
+                onChange([...preset.chords]);
+              }}
+              className={`min-h-[34px] rounded-lg border px-2.5 py-1 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
+                isCurrent
+                  ? 'border-[#E5A93C]/70 bg-[#E5A93C]/15 text-[#E5A93C]'
+                  : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+              }`}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Triads row */}
+      <div className="mt-3.5">
+        <p className="mb-1.5 text-xs font-medium text-[#9CA3AE]">Triads</p>
+        <div className="grid grid-cols-7 gap-1.5">
+          {TRIAD_IDS.map((id) => {
+            const def = CHORD_DEFS[id];
+            const active = selectedSet.has(id);
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={active}
+                aria-label={`Triad ${def.symbol} (${def.spokenLabel})`}
+                onClick={() => toggleChord(id)}
+                className={`flex min-h-[48px] items-center justify-center rounded-xl border font-roman text-base sm:text-lg font-semibold transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
+                  active
+                    ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
+                    : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+                }`}
+              >
+                {def.symbol}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Seventh chords row */}
+      <div className="mt-3">
+        <p className="mb-1.5 text-xs font-medium text-[#9CA3AE]">Seventh chords</p>
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+          {SEVENTH_IDS.map((id) => {
+            const def = CHORD_DEFS[id];
+            const active = selectedSet.has(id);
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={active}
+                aria-label={`Seventh ${def.symbol} (${def.spokenLabel})`}
+                onClick={() => toggleChord(id)}
+                className={`flex min-h-[48px] items-center justify-center rounded-xl border px-1 font-roman text-sm sm:text-[15px] font-semibold transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
+                  active
+                    ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
+                    : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+                }`}
+              >
+                {def.symbol}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {minGuardNotice && (
+        <p className="mt-2.5 text-xs text-[#E5A93C]" role="status">
+          Keep at least one chord active.
+        </p>
+      )}
+    </section>
+  );
+}
