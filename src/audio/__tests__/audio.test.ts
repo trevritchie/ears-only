@@ -6,6 +6,12 @@ import { INSTRUMENT_PRESETS } from '../instruments';
 import { computeVoicePan } from '../instruments/types';
 import { AMBIENCE_CONFIGS, createAmbienceImpulseResponse } from '../reverb';
 import { createSilentWavBuffer } from '../silentKeepAlive';
+import {
+  DUCKED_CHORD_BUS_GAIN,
+  PolySynth,
+  VOICE_POCKET_CUT_DB,
+  VOICE_POCKET_FREQ_HZ,
+} from '../synth';
 import { ALL_VOICE_CLIP_TEXTS, getVoiceClipUrl } from '../voiceClips';
 import {
   chordSliderToGain,
@@ -270,5 +276,125 @@ describe('meditative instruments & ambience', () => {
     expect(sanitizeSettings({ ambience: 'lush-hall' }).ambience).toBe(
       'lush-hall',
     );
+  });
+
+  it('uses midrange EQ pocket carving with gentle broadband cushion when ducking', async () => {
+    const createdFilters: Array<{
+      type: string;
+      frequency: { value: number };
+      Q: { value: number };
+      gain: { value: number; setTargetAtTime: ReturnType<typeof vi.fn> };
+    }> = [];
+    const createdGains: Array<{
+      gain: { value: number; setTargetAtTime: ReturnType<typeof vi.fn> };
+    }> = [];
+
+    const makeParam = (initial = 0) => ({
+      value: initial,
+      setValueAtTime: vi.fn(),
+      setTargetAtTime: vi.fn(),
+      linearRampToValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn(),
+    });
+
+    class MockAudioContext {
+      currentTime = 2.0;
+      sampleRate = 44100;
+      state = 'running';
+      destination = {};
+      addEventListener = vi.fn();
+      removeEventListener = vi.fn();
+      resume = vi.fn().mockResolvedValue(undefined);
+      close = vi.fn().mockResolvedValue(undefined);
+      createGain = vi.fn(() => {
+        const node = {
+          gain: makeParam(1),
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        createdGains.push(node);
+        return node;
+      });
+      createBiquadFilter = vi.fn(() => {
+        const node = {
+          type: 'lowpass',
+          frequency: makeParam(350),
+          Q: makeParam(1),
+          gain: makeParam(0),
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        createdFilters.push(node);
+        return node;
+      });
+      createConvolver = vi.fn(() => ({
+        buffer: null,
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      }));
+      createDynamicsCompressor = vi.fn(() => ({
+        threshold: makeParam(-6),
+        knee: makeParam(12),
+        ratio: makeParam(3),
+        attack: makeParam(0.008),
+        release: makeParam(0.18),
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      }));
+      createBuffer = vi.fn((ch: number, len: number) => {
+        const channels = Array.from({ length: ch }, () => new Float32Array(len));
+        return {
+          length: len,
+          numberOfChannels: ch,
+          getChannelData: (c: number) => channels[c],
+        };
+      });
+    }
+
+    const originalAudioContext = window.AudioContext;
+    Object.defineProperty(window, 'AudioContext', {
+      value: MockAudioContext,
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      const synth = new PolySynth();
+      await synth.ensureContext();
+
+      const pocketFilter = createdFilters.find((f) => f.type === 'peaking');
+      expect(pocketFilter).toBeDefined();
+      expect(pocketFilter!.frequency.value).toBe(VOICE_POCKET_FREQ_HZ);
+      expect(pocketFilter!.gain.value).toBe(0);
+
+      const chordBus = createdGains[0];
+      synth.setDucked(true, 2.0);
+      expect(chordBus.gain.setTargetAtTime).toHaveBeenCalledWith(
+        DUCKED_CHORD_BUS_GAIN,
+        2.0,
+        0.08,
+      );
+      expect(pocketFilter!.gain.setTargetAtTime).toHaveBeenCalledWith(
+        VOICE_POCKET_CUT_DB,
+        2.0,
+        0.08,
+      );
+
+      synth.setDucked(false, 4.0);
+      expect(chordBus.gain.setTargetAtTime).toHaveBeenCalledWith(1.0, 4.0, 0.08);
+      expect(pocketFilter!.gain.setTargetAtTime).toHaveBeenCalledWith(
+        0,
+        4.0,
+        0.08,
+      );
+
+      synth.dispose();
+    } finally {
+      Object.defineProperty(window, 'AudioContext', {
+        value: originalAudioContext,
+        configurable: true,
+        writable: true,
+      });
+    }
   });
 });

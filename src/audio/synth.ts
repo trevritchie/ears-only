@@ -36,10 +36,16 @@ interface InternalVoiceEntry {
   release: (atTime: number, customFadeSec?: number) => void;
 }
 
+export const VOICE_POCKET_FREQ_HZ = 1600;
+export const VOICE_POCKET_Q = 0.85;
+export const VOICE_POCKET_CUT_DB = -7.5;
+export const DUCKED_CHORD_BUS_GAIN = 0.78;
+
 export class PolySynth implements SynthEngine {
   private ctx: AudioContext | null = null;
   private chordBus: GainNode | null = null;
   private chordLevelGain: GainNode | null = null;
+  private voicePocketEq: BiquadFilterNode | null = null;
   private dryGain: GainNode | null = null;
   private wetGain: GainNode | null = null;
   private convolver: ConvolverNode | null = null;
@@ -82,7 +88,7 @@ export class PolySynth implements SynthEngine {
     this.sharedResources = createVoiceSharedResources(ctx);
 
     const chordBus = ctx.createGain();
-    chordBus.gain.value = this.isDucked ? 0.38 : 1.0;
+    chordBus.gain.value = this.isDucked ? DUCKED_CHORD_BUS_GAIN : 1.0;
 
     const chordLevelGain = ctx.createGain();
     chordLevelGain.gain.value = chordSliderToGain(this.chordVolume);
@@ -96,6 +102,14 @@ export class PolySynth implements SynthEngine {
     presenceShelf.type = 'highshelf';
     presenceShelf.frequency.value = 1600;
     presenceShelf.gain.value = 1.2;
+
+    // Dynamic midrange pocket EQ engaged during narration so bass and top air
+    // remain warm and intact while vocal clarity sits cleanly in the center.
+    const voicePocketEq = ctx.createBiquadFilter();
+    voicePocketEq.type = 'peaking';
+    voicePocketEq.frequency.value = VOICE_POCKET_FREQ_HZ;
+    voicePocketEq.Q.value = VOICE_POCKET_Q;
+    voicePocketEq.gain.value = this.isDucked ? VOICE_POCKET_CUT_DB : 0;
 
     const ambCfg = AMBIENCE_CONFIGS[this.ambience];
 
@@ -127,8 +141,9 @@ export class PolySynth implements SynthEngine {
     chordBus.connect(chordLevelGain);
     chordLevelGain.connect(warmthFilter);
     warmthFilter.connect(presenceShelf);
-    presenceShelf.connect(dryGain);
-    presenceShelf.connect(convolver);
+    presenceShelf.connect(voicePocketEq);
+    voicePocketEq.connect(dryGain);
+    voicePocketEq.connect(convolver);
     convolver.connect(wetGain);
 
     dryGain.connect(compressor);
@@ -148,6 +163,7 @@ export class PolySynth implements SynthEngine {
     this.ctx = ctx;
     this.chordBus = chordBus;
     this.chordLevelGain = chordLevelGain;
+    this.voicePocketEq = voicePocketEq;
     this.dryGain = dryGain;
     this.wetGain = wetGain;
     this.convolver = convolver;
@@ -158,6 +174,7 @@ export class PolySynth implements SynthEngine {
       chordLevelGain,
       warmthFilter,
       presenceShelf,
+      voicePocketEq,
       dryGain,
       wetGain,
       convolver,
@@ -215,8 +232,18 @@ export class PolySynth implements SynthEngine {
     this.isDucked = ducked;
     if (!this.ctx || !this.chordBus) return;
     const t = Math.max(this.ctx.currentTime, atTime ?? this.ctx.currentTime);
-    const target = ducked ? 0.38 : 1.0;
-    this.chordBus.gain.setTargetAtTime(target, t, 0.06);
+    this.chordBus.gain.setTargetAtTime(
+      ducked ? DUCKED_CHORD_BUS_GAIN : 1.0,
+      t,
+      0.08,
+    );
+    if (this.voicePocketEq) {
+      this.voicePocketEq.gain.setTargetAtTime(
+        ducked ? VOICE_POCKET_CUT_DB : 0,
+        t,
+        0.08,
+      );
+    }
   }
 
   setChordVolume(volume: number): void {
@@ -457,6 +484,7 @@ export class PolySynth implements SynthEngine {
     this.ctx = null;
     this.chordBus = null;
     this.chordLevelGain = null;
+    this.voicePocketEq = null;
     this.dryGain = null;
     this.wetGain = null;
     this.convolver = null;

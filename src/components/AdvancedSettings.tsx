@@ -125,7 +125,7 @@ export function AdvancedSettings({
             <SwitchRow
               id="toggle-chords-behind-answer"
               label="Play chords behind answer voice"
-              description="Ducks chord volume while Roman numerals are spoken"
+              description="Carves a gentle midrange EQ pocket behind the narrator"
               checked={settings.playChordsBehindAnswer}
               onChange={(checked) =>
                 onUpdate({ playChordsBehindAnswer: checked })
