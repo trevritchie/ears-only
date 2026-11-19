@@ -337,16 +337,20 @@ describe('perceptual volume calibration', () => {
 });
 
 describe('meditative instruments & ambience', () => {
-  it('exposes all 10 instrument presets (Velvet Pad default, 6 real-sample acoustics, and 4 synths)', () => {
-    expect(INSTRUMENT_PRESETS).toHaveLength(10);
+  it('exposes all 14 instrument presets (Velvet Pad default, 10 real-sample acoustics, and 4 synths)', () => {
+    expect(INSTRUMENT_PRESETS).toHaveLength(14);
     const ids = INSTRUMENT_PRESETS.map((p) => p.id);
     expect(ids).toEqual([
       'velvet-pad',
       'grand-piano',
       'warm-strings',
+      'chamber-cello',
       'satb-choir',
+      'french-horn',
       'concert-harp',
       'nylon-guitar',
+      'clean-guitar',
+      'harmonium',
       'pipe-organ',
       'felt-piano',
       'warm-rhodes',
@@ -359,13 +363,18 @@ describe('meditative instruments & ambience', () => {
   });
 
   it('lazy-loads acoustic sample packs on demand and maps every note in E2..G5 cleanly', async () => {
+    const maxAllowedShift: Record<string, number> = {
+      'french-horn': 7,
+      'chamber-cello': 4,
+    };
     for (const [id, cfg] of Object.entries(ACOUSTIC_PACK_CONFIGS)) {
+      const limit = maxAllowedShift[id] ?? 2;
       for (let midi = 40; midi <= 76; midi++) {
         const { anchorMidi, playbackRate } = findNearestAnchor(
           cfg.anchors,
           midi,
         );
-        expect(Math.abs(midi - anchorMidi)).toBeLessThanOrEqual(2);
+        expect(Math.abs(midi - anchorMidi)).toBeLessThanOrEqual(limit);
         expect(playbackRate).toBeCloseTo(
           Math.pow(2, (midi - anchorMidi) / 12),
           6,

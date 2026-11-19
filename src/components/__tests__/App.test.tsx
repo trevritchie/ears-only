@@ -90,10 +90,22 @@ describe('Ears Only App UI', () => {
       screen.getByRole('button', { name: /warm strings.*bowed ensemble/i }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('button', { name: /chamber cello.*rich bowed cello/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /french horn.*warm brass choir/i }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole('button', { name: /concert harp.*plucked acoustic/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /nylon guitar.*classical acoustic/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /clean guitar.*warm jazz electric/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /harmonium.*meditative reed organ/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /pipe organ.*warm cathedral/i }),

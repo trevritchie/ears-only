@@ -23,6 +23,22 @@ export const WARM_STRINGS_META: InstrumentPresetMeta = {
   rollStepSec: 0.0,
 };
 
+export const CHAMBER_CELLO_META: InstrumentPresetMeta = {
+  id: 'chamber-cello',
+  label: 'Chamber Cello',
+  subtitle: 'Rich bowed cello',
+  defaultReleaseSec: 0.52,
+  rollStepSec: 0.0,
+};
+
+export const FRENCH_HORN_META: InstrumentPresetMeta = {
+  id: 'french-horn',
+  label: 'French Horn',
+  subtitle: 'Warm brass choir',
+  defaultReleaseSec: 0.48,
+  rollStepSec: 0.0,
+};
+
 export const CONCERT_HARP_META: InstrumentPresetMeta = {
   id: 'concert-harp',
   label: 'Concert Harp',
@@ -35,8 +51,24 @@ export const NYLON_GUITAR_META: InstrumentPresetMeta = {
   id: 'nylon-guitar',
   label: 'Nylon Guitar',
   subtitle: 'Classical acoustic',
-  defaultReleaseSec: 0.32,
+  defaultReleaseSec: 0.34,
   rollStepSec: 0.018,
+};
+
+export const CLEAN_GUITAR_META: InstrumentPresetMeta = {
+  id: 'clean-guitar',
+  label: 'Clean Guitar',
+  subtitle: 'Warm jazz electric',
+  defaultReleaseSec: 0.36,
+  rollStepSec: 0.014,
+};
+
+export const HARMONIUM_META: InstrumentPresetMeta = {
+  id: 'harmonium',
+  label: 'Harmonium',
+  subtitle: 'Meditative reed organ',
+  defaultReleaseSec: 0.48,
+  rollStepSec: 0.0,
 };
 
 export const PIPE_ORGAN_META: InstrumentPresetMeta = {
@@ -73,6 +105,22 @@ const SAMPLE_PROFILES: Record<AcousticSampleTimbreId, SampleVoiceProfile> = {
     defaultReleaseSec: WARM_STRINGS_META.defaultReleaseSec,
     fallback: 'pad',
   },
+  'chamber-cello': {
+    attackSec: 0.14,
+    gainBoost: 2.0,
+    bassCutoffHz: 2600,
+    upperCutoffHz: 5400,
+    defaultReleaseSec: CHAMBER_CELLO_META.defaultReleaseSec,
+    fallback: 'pad',
+  },
+  'french-horn': {
+    attackSec: 0.12,
+    gainBoost: 2.05,
+    bassCutoffHz: 2000,
+    upperCutoffHz: 4600,
+    defaultReleaseSec: FRENCH_HORN_META.defaultReleaseSec,
+    fallback: 'pad',
+  },
   'concert-harp': {
     attackSec: 0.004,
     gainBoost: 2.2,
@@ -88,6 +136,22 @@ const SAMPLE_PROFILES: Record<AcousticSampleTimbreId, SampleVoiceProfile> = {
     upperCutoffHz: 6200,
     defaultReleaseSec: NYLON_GUITAR_META.defaultReleaseSec,
     fallback: 'piano',
+  },
+  'clean-guitar': {
+    attackSec: 0.004,
+    gainBoost: 2.2,
+    bassCutoffHz: 3000,
+    upperCutoffHz: 6400,
+    defaultReleaseSec: CLEAN_GUITAR_META.defaultReleaseSec,
+    fallback: 'piano',
+  },
+  harmonium: {
+    attackSec: 0.14,
+    gainBoost: 1.9,
+    bassCutoffHz: 1900,
+    upperCutoffHz: 3400,
+    defaultReleaseSec: HARMONIUM_META.defaultReleaseSec,
+    fallback: 'pad',
   },
   'pipe-organ': {
     attackSec: 0.06,
@@ -157,12 +221,28 @@ export function buildWarmStringsVoice(params: VoiceBuildParams): BuiltVoiceNodes
   return buildAcousticSampleVoice('warm-strings', params);
 }
 
+export function buildChamberCelloVoice(params: VoiceBuildParams): BuiltVoiceNodes {
+  return buildAcousticSampleVoice('chamber-cello', params);
+}
+
+export function buildFrenchHornVoice(params: VoiceBuildParams): BuiltVoiceNodes {
+  return buildAcousticSampleVoice('french-horn', params);
+}
+
 export function buildConcertHarpVoice(params: VoiceBuildParams): BuiltVoiceNodes {
   return buildAcousticSampleVoice('concert-harp', params);
 }
 
 export function buildNylonGuitarVoice(params: VoiceBuildParams): BuiltVoiceNodes {
   return buildAcousticSampleVoice('nylon-guitar', params);
+}
+
+export function buildCleanGuitarVoice(params: VoiceBuildParams): BuiltVoiceNodes {
+  return buildAcousticSampleVoice('clean-guitar', params);
+}
+
+export function buildHarmoniumVoice(params: VoiceBuildParams): BuiltVoiceNodes {
+  return buildAcousticSampleVoice('harmonium', params);
 }
 
 export function buildPipeOrganVoice(params: VoiceBuildParams): BuiltVoiceNodes {

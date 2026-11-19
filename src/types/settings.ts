@@ -28,9 +28,13 @@ export type TimbreId =
   | 'velvet-pad'
   | 'grand-piano'
   | 'warm-strings'
+  | 'chamber-cello'
   | 'satb-choir'
+  | 'french-horn'
   | 'concert-harp'
   | 'nylon-guitar'
+  | 'clean-guitar'
+  | 'harmonium'
   | 'pipe-organ'
   | 'felt-piano'
   | 'warm-rhodes'
@@ -214,9 +218,13 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
     'velvet-pad',
     'grand-piano',
     'warm-strings',
+    'chamber-cello',
     'satb-choir',
+    'french-horn',
     'concert-harp',
     'nylon-guitar',
+    'clean-guitar',
+    'harmonium',
     'pipe-organ',
     'felt-piano',
     'warm-rhodes',

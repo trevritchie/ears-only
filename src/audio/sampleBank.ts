@@ -1,8 +1,12 @@
 export type AcousticSampleTimbreId =
   | 'grand-piano'
   | 'warm-strings'
+  | 'chamber-cello'
+  | 'french-horn'
   | 'concert-harp'
   | 'nylon-guitar'
+  | 'clean-guitar'
+  | 'harmonium'
   | 'pipe-organ';
 
 export interface AcousticPackConfig {
@@ -11,7 +15,7 @@ export interface AcousticPackConfig {
   sustained: boolean;
 }
 
-export const ACOUSTIC_SAMPLES_VERSION = '1';
+export const ACOUSTIC_SAMPLES_VERSION = '2';
 
 const STANDARD_10_ANCHORS: readonly number[] = [
   40, 44, 48, 52, 56, 60, 64, 68, 72, 76,
@@ -26,20 +30,40 @@ export const ACOUSTIC_PACK_CONFIGS: Record<
     anchors: [39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78],
     sustained: false,
   },
-  'concert-harp': {
-    id: 'concert-harp',
-    anchors: [38, 41, 45, 48, 52, 55, 59, 62, 65, 69, 72, 76, 79],
-    sustained: false,
-  },
   'warm-strings': {
     id: 'warm-strings',
     anchors: STANDARD_10_ANCHORS,
     sustained: true,
   },
+  'chamber-cello': {
+    id: 'chamber-cello',
+    anchors: [40, 43, 47, 50, 53, 57, 60, 64, 67, 71, 72],
+    sustained: true,
+  },
+  'french-horn': {
+    id: 'french-horn',
+    anchors: [36, 39, 43, 50, 53, 57, 60, 74, 77],
+    sustained: true,
+  },
+  'concert-harp': {
+    id: 'concert-harp',
+    anchors: [38, 41, 45, 48, 52, 55, 59, 62, 65, 69, 72, 76, 79],
+    sustained: false,
+  },
   'nylon-guitar': {
     id: 'nylon-guitar',
-    anchors: STANDARD_10_ANCHORS,
+    anchors: [40, 44, 47, 50, 54, 57, 61, 64, 68, 71, 76],
     sustained: false,
+  },
+  'clean-guitar': {
+    id: 'clean-guitar',
+    anchors: [42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78],
+    sustained: false,
+  },
+  harmonium: {
+    id: 'harmonium',
+    anchors: [40, 43, 46, 49, 52, 55, 58, 61, 64, 67, 70, 74],
+    sustained: true,
   },
   'pipe-organ': {
     id: 'pipe-organ',
