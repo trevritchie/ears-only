@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AudioBufferAnnouncer } from '../../engine/audioAnnouncer';
 import { MAJOR_KEYS, ALL_CHORD_IDS, getSpokenChordPhrase } from '../../music/chords';
+import { sanitizeSettings } from '../../types/settings';
+import { INSTRUMENT_PRESETS } from '../instruments';
+import { computeVoicePan } from '../instruments/types';
+import { AMBIENCE_CONFIGS, createAmbienceImpulseResponse } from '../reverb';
 import { createSilentWavBuffer } from '../silentKeepAlive';
 import { ALL_VOICE_CLIP_TEXTS, getVoiceClipUrl } from '../voiceClips';
 import {
@@ -188,5 +192,83 @@ describe('perceptual volume calibration', () => {
     // Strictly monotonic with useful headroom up to 100%
     expect(voiceSliderToGain(1.0)).toBeGreaterThan(voiceSliderToGain(0.65) * 2);
     expect(chordSliderToGain(1.0)).toBeGreaterThan(chordSliderToGain(0.75) * 1.5);
+  });
+});
+
+describe('meditative instruments & ambience', () => {
+  it('exposes all 6 instrument presets including preserved classic voices', () => {
+    expect(INSTRUMENT_PRESETS).toHaveLength(6);
+    const ids = INSTRUMENT_PRESETS.map((p) => p.id);
+    expect(ids).toEqual([
+      'felt-piano',
+      'warm-rhodes',
+      'velvet-pad',
+      'soft-vibes',
+      'electric-piano',
+      'soft-pad',
+    ]);
+    for (const preset of INSTRUMENT_PRESETS) {
+      expect(preset.defaultReleaseSec).toBeGreaterThan(0);
+      expect(preset.rollStepSec).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('centers bass pan and spreads upper voices symmetrically inside [-0.3, 0.3]', () => {
+    expect(Math.abs(computeVoicePan(0, 4, 'bass'))).toBeLessThanOrEqual(0.05);
+    const upperPans = [
+      computeVoicePan(1, 4, 'harmony'),
+      computeVoicePan(2, 4, 'harmony'),
+      computeVoicePan(3, 4, 'harmony'),
+    ];
+    for (const pan of upperPans) {
+      expect(pan).toBeGreaterThanOrEqual(-0.3);
+      expect(pan).toBeLessThanOrEqual(0.3);
+    }
+    expect(upperPans[0]).toBeLessThan(0);
+    expect(upperPans[2]).toBeGreaterThan(0);
+  });
+
+  it('builds pre-delayed damped stereo impulse responses for Warm Room and Lush Hall', () => {
+    const fakeCtx = {
+      sampleRate: 44100,
+      createBuffer: (_ch: number, len: number) => {
+        const ch0 = new Float32Array(len);
+        const ch1 = new Float32Array(len);
+        return {
+          length: len,
+          numberOfChannels: 2,
+          getChannelData: (c: number) => (c === 0 ? ch0 : ch1),
+        } as unknown as AudioBuffer;
+      },
+    } as unknown as BaseAudioContext;
+
+    expect(AMBIENCE_CONFIGS.dry.wetGain).toBe(0);
+
+    for (const mode of ['warm-room', 'lush-hall'] as const) {
+      const ir = createAmbienceImpulseResponse(fakeCtx, mode);
+      const left = ir.getChannelData(0);
+      const right = ir.getChannelData(1);
+      // Pre-delay starts strictly silent
+      expect(left[0]).toBe(0);
+      expect(right[0]).toBe(0);
+      // Tail has bounded non-zero energy
+      const peak = left.reduce((m, s) => Math.max(m, Math.abs(s)), 0);
+      expect(peak).toBeGreaterThan(0.01);
+      expect(peak).toBeLessThanOrEqual(0.5);
+    }
+  });
+
+  it('defaults fresh settings to felt-piano + warm-room while preserving classic saved timbres', () => {
+    const fresh = sanitizeSettings(null);
+    expect(fresh.timbre).toBe('felt-piano');
+    expect(fresh.ambience).toBe('warm-room');
+
+    expect(sanitizeSettings({ timbre: 'electric-piano' }).timbre).toBe(
+      'electric-piano',
+    );
+    expect(sanitizeSettings({ timbre: 'soft-pad' }).timbre).toBe('soft-pad');
+    expect(sanitizeSettings({ ambience: 'lush-hall' }).ambience).toBe(
+      'lush-hall',
+    );
   });
 });

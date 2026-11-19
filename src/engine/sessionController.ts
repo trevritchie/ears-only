@@ -1,5 +1,6 @@
 import type { DroneEngine } from '../audio/drone';
 import { ChromaticDrone } from '../audio/drone';
+import { getInstrumentPreset } from '../audio/instruments';
 import type { ChordVoiceHandle, SynthEngine } from '../audio/synth';
 import { PolySynth } from '../audio/synth';
 import {
@@ -23,7 +24,13 @@ import {
   type VoicedChord,
   type VoicingStrategy,
 } from '../music/voicing';
-import type { ChordId, PitchClass, SessionSettings } from '../types/settings';
+import type {
+  AmbienceMode,
+  ChordId,
+  PitchClass,
+  SessionSettings,
+  TimbreId,
+} from '../types/settings';
 import { HybridVoiceAnnouncer } from './hybridAnnouncer';
 import { PocketManager, type PocketController } from './pocketManager';
 import { type VoiceAnnouncer } from './speech';
@@ -131,6 +138,7 @@ export class SessionController {
   private revealSpeechDone = false;
   private revealSpeechFinishedTime: number | null = null;
   private currentRevealVoice: ChordVoiceHandle | null = null;
+  private previewVoice: ChordVoiceHandle | null = null;
 
   constructor(initialSettings: SessionSettings, deps: SessionDependencies = {}) {
     this.settings = {
@@ -302,9 +310,13 @@ export class SessionController {
         ? pickRandomKey(this.rng)
         : this.settings.fixedKey;
 
+    this.previewVoice?.release(this.synth.getCurrentTime(), 0.04);
+    this.previewVoice = null;
+
     this.announcer.preload?.(this.getPreloadPhrases());
     this.synth.setChordVolume(this.settings.chordVolume);
     this.synth.setVoiceVolume(this.settings.voiceVolume);
+    this.synth.setAmbience(this.settings.ambience);
     this.syncDrone();
     this.synth.setDucked(false, this.synth.getCurrentTime());
 
@@ -319,6 +331,8 @@ export class SessionController {
     this.isRunning = false;
     this.clock.stop();
     this.announcer.cancel();
+    this.previewVoice?.release(this.synth.getCurrentTime(), 0.04);
+    this.previewVoice = null;
     this.currentRevealVoice?.release(this.synth.getCurrentTime(), 0.05);
     this.currentRevealVoice = null;
     this.synth.releaseAll(0.05);
@@ -341,6 +355,8 @@ export class SessionController {
 
     this.epoch++;
     this.announcer.cancel();
+    this.previewVoice?.release(this.synth.getCurrentTime(), 0.04);
+    this.previewVoice = null;
     this.currentRevealVoice?.release(this.synth.getCurrentTime(), 0.05);
     this.currentRevealVoice = null;
     this.synth.releaseAll(0.05);
@@ -366,6 +382,8 @@ export class SessionController {
 
     this.epoch++;
     this.announcer.cancel();
+    this.previewVoice?.release(this.synth.getCurrentTime(), 0.04);
+    this.previewVoice = null;
     this.currentRevealVoice?.release(this.synth.getCurrentTime(), 0.05);
     this.currentRevealVoice = null;
     this.synth.releaseAll(0.05);
@@ -385,6 +403,36 @@ export class SessionController {
     this.beginAnswerReveal(this.synth.getCurrentTime());
   }
 
+  previewSound(timbre?: TimbreId, ambience?: AmbienceMode): void {
+    if (this.isRunning) return;
+
+    const targetTimbre = timbre ?? this.settings.timbre;
+    const targetAmbience = ambience ?? this.settings.ambience;
+
+    void this.synth.ensureContext();
+    const now = this.synth.getCurrentTime();
+    this.previewVoice?.release(now, 0.05);
+    this.previewVoice = null;
+
+    this.synth.setDucked(false, now);
+    this.synth.setChordVolume(this.settings.chordVolume);
+    this.synth.setAmbience(targetAmbience);
+
+    const voiced = this.voicingStrategy.voiceSequence(
+      ['Imaj7'],
+      this.settings.fixedKey,
+    )[0];
+    if (!voiced) return;
+
+    const rollStepSec = getInstrumentPreset(targetTimbre).rollStepSec;
+    const notes = this.arrangementStrategy.arrangeChord(
+      voiced,
+      1.55,
+      rollStepSec,
+    );
+    this.previewVoice = this.synth.playChord(notes, now + 0.025, targetTimbre);
+  }
+
   updateSettings(next: SessionSettings): void {
     const prev = this.settings;
     this.settings = {
@@ -394,6 +442,7 @@ export class SessionController {
     this.announcer.setMode?.(next.voiceSource);
     this.synth.setChordVolume(next.chordVolume);
     this.synth.setVoiceVolume(next.voiceVolume);
+    this.synth.setAmbience(next.ambience);
 
     if (!this.isRunning) {
       this.activeKey = next.fixedKey;
@@ -620,9 +669,11 @@ export class SessionController {
         : this.settings.speechRate;
 
     if (this.settings.playChordsBehindAnswer) {
+      const rollStepSec = getInstrumentPreset(this.settings.timbre).rollStepSec;
       const notes = this.arrangementStrategy.arrangeChord(
         this.voicedProgression[index],
         null,
+        rollStepSec,
       );
       this.currentRevealVoice = this.synth.playChord(
         notes,
@@ -662,6 +713,8 @@ export class SessionController {
   }
 
   private scheduleAvailableChords(now: number): void {
+    const rollStepSec = getInstrumentPreset(this.settings.timbre).rollStepSec;
+
     if (this.phase === 'orienting_cadence') {
       while (
         this.scheduleIndex < this.voicedOrientation.length &&
@@ -671,6 +724,7 @@ export class SessionController {
         const notes = this.arrangementStrategy.arrangeChord(
           this.voicedOrientation[this.scheduleIndex],
           dur,
+          rollStepSec,
         );
         this.synth.playChord(notes, this.nextScheduleTime, this.settings.timbre);
         this.visualCues.push({
@@ -696,6 +750,7 @@ export class SessionController {
         const notes = this.arrangementStrategy.arrangeChord(
           this.voicedProgression[this.scheduleIndex],
           slotDur,
+          rollStepSec,
         );
         this.synth.playChord(notes, this.nextScheduleTime, this.settings.timbre);
         this.visualCues.push({

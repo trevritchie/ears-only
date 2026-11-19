@@ -1,6 +1,13 @@
 import type { ScheduledNote } from '../music/arrangement';
 import { midiToFreq } from '../music/voicing';
-import type { TimbreId } from '../types/settings';
+import type { AmbienceMode, TimbreId } from '../types/settings';
+import { buildInstrumentVoice } from './instruments';
+import {
+  computeVoicePan,
+  createVoiceSharedResources,
+  type VoiceSharedResources,
+} from './instruments/types';
+import { AMBIENCE_CONFIGS, createAmbienceImpulseResponse } from './reverb';
 import { chordSliderToGain, voiceSliderToGain } from './volume';
 
 export interface ChordVoiceHandle {
@@ -20,6 +27,7 @@ export interface SynthEngine {
   setDucked(ducked: boolean, atTime?: number): void;
   setChordVolume(volume: number): void;
   setVoiceVolume(volume: number): void;
+  setAmbience(mode: AmbienceMode): void;
   onStateChange(cb: (state: string) => void): () => void;
   dispose(): void;
 }
@@ -28,33 +36,17 @@ interface InternalVoiceEntry {
   release: (atTime: number, customFadeSec?: number) => void;
 }
 
-function createRoomImpulseResponse(ctx: AudioContext): AudioBuffer {
-  const durationSec = 0.55;
-  const length = Math.floor(ctx.sampleRate * durationSec);
-  const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
-
-  for (let ch = 0; ch < 2; ch++) {
-    const channelData = buffer.getChannelData(ch);
-    let prev = 0;
-    for (let i = 0; i < length; i++) {
-      const progress = i / length;
-      const decay = Math.pow(1 - progress, 3.2);
-      const white = Math.random() * 2 - 1;
-      // Lighter, natural room air without muffled mud.
-      const filtered = prev * 0.42 + white * 0.58;
-      prev = filtered;
-      channelData[i] = filtered * decay * 0.35;
-    }
-  }
-  return buffer;
-}
-
 export class PolySynth implements SynthEngine {
   private ctx: AudioContext | null = null;
   private chordBus: GainNode | null = null;
   private chordLevelGain: GainNode | null = null;
+  private dryGain: GainNode | null = null;
+  private wetGain: GainNode | null = null;
+  private convolver: ConvolverNode | null = null;
   private voiceBus: GainNode | null = null;
   private compressor: DynamicsCompressorNode | null = null;
+  private sharedResources: VoiceSharedResources | null = null;
+  private irCache = new Map<'warm-room' | 'lush-hall', AudioBuffer>();
   private graphNodes: AudioNode[] = [];
 
   private activeVoices = new Set<InternalVoiceEntry>();
@@ -62,17 +54,32 @@ export class PolySynth implements SynthEngine {
   private isDucked = false;
   private chordVolume = 0.75;
   private voiceVolume = 0.65;
+  private ambience: AmbienceMode = 'warm-room';
   private stateChangeBound: (() => void) | null = null;
 
-  private initGraph(): AudioContext {
+  private getOrCreateIr(
+    ctx: AudioContext,
+    mode: Exclude<AmbienceMode, 'dry'>,
+  ): AudioBuffer {
+    const cached = this.irCache.get(mode);
+    if (cached) return cached;
+    const ir = createAmbienceImpulseResponse(ctx, mode);
+    this.irCache.set(mode, ir);
+    return ir;
+  }
+
+  private initGraph(): AudioContext | null {
     if (this.ctx) return this.ctx;
+    if (typeof window === 'undefined') return null;
 
     const AudioCtx =
       window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
         .webkitAudioContext;
+    if (!AudioCtx) return null;
 
     const ctx = new AudioCtx({ latencyHint: 'playback' });
+    this.sharedResources = createVoiceSharedResources(ctx);
 
     const chordBus = ctx.createGain();
     chordBus.gain.value = this.isDucked ? 0.38 : 1.0;
@@ -88,16 +95,21 @@ export class PolySynth implements SynthEngine {
     const presenceShelf = ctx.createBiquadFilter();
     presenceShelf.type = 'highshelf';
     presenceShelf.frequency.value = 1600;
-    presenceShelf.gain.value = 1.5;
+    presenceShelf.gain.value = 1.2;
+
+    const ambCfg = AMBIENCE_CONFIGS[this.ambience];
 
     const dryGain = ctx.createGain();
-    dryGain.gain.value = 0.92;
+    dryGain.gain.value = ambCfg.dryGain;
 
     const wetGain = ctx.createGain();
-    wetGain.gain.value = 0.1;
+    wetGain.gain.value = ambCfg.wetGain;
 
     const convolver = ctx.createConvolver();
-    convolver.buffer = createRoomImpulseResponse(ctx);
+    convolver.buffer = this.getOrCreateIr(
+      ctx,
+      this.ambience === 'dry' ? 'warm-room' : this.ambience,
+    );
 
     const voiceBus = ctx.createGain();
     voiceBus.gain.value = voiceSliderToGain(this.voiceVolume);
@@ -136,6 +148,9 @@ export class PolySynth implements SynthEngine {
     this.ctx = ctx;
     this.chordBus = chordBus;
     this.chordLevelGain = chordLevelGain;
+    this.dryGain = dryGain;
+    this.wetGain = wetGain;
+    this.convolver = convolver;
     this.voiceBus = voiceBus;
     this.compressor = compressor;
     this.graphNodes = [
@@ -157,6 +172,7 @@ export class PolySynth implements SynthEngine {
 
   async ensureContext(): Promise<void> {
     const ctx = this.initGraph();
+    if (!ctx) return;
     if (ctx.state !== 'running') {
       try {
         await ctx.resume();
@@ -223,19 +239,44 @@ export class PolySynth implements SynthEngine {
     );
   }
 
+  setAmbience(mode: AmbienceMode): void {
+    this.ambience = mode;
+    if (!this.ctx || !this.dryGain || !this.wetGain || !this.convolver) return;
+
+    const now = this.ctx.currentTime;
+    const cfg = AMBIENCE_CONFIGS[mode];
+    this.dryGain.gain.setTargetAtTime(cfg.dryGain, now, 0.04);
+
+    if (mode === 'dry') {
+      this.wetGain.gain.setTargetAtTime(0, now, 0.04);
+      return;
+    }
+
+    const nextIr = this.getOrCreateIr(this.ctx, mode);
+    if (this.convolver.buffer !== nextIr) {
+      this.convolver.buffer = nextIr;
+    }
+    this.wetGain.gain.setTargetAtTime(cfg.wetGain, now, 0.05);
+  }
+
   playChord(
     notes: readonly ScheduledNote[],
     startTime: number,
     timbre: TimbreId,
   ): ChordVoiceHandle {
     const ctx = this.initGraph();
-    const bus = this.chordBus!;
+    if (!ctx || !this.chordBus || !this.sharedResources) {
+      return { release: () => {} };
+    }
+    const bus = this.chordBus;
+    const shared = this.sharedResources;
 
     const baseStart = Math.max(ctx.currentTime + 0.005, startTime);
     const countScale = 1 / Math.sqrt(Math.max(1, notes.length));
     const noteReleases: ((atTime: number, customFadeSec?: number) => void)[] = [];
 
-    for (const note of notes) {
+    notes.forEach((note, index) => {
+      const pan = computeVoicePan(index, notes.length, note.role);
       const releaseFn = this.scheduleSingleNote(
         ctx,
         bus,
@@ -243,9 +284,11 @@ export class PolySynth implements SynthEngine {
         baseStart,
         countScale,
         timbre,
+        pan,
+        shared,
       );
       noteReleases.push(releaseFn);
-    }
+    });
 
     let released = false;
     const entry: InternalVoiceEntry = {
@@ -274,6 +317,8 @@ export class PolySynth implements SynthEngine {
     chordStart: number,
     countScale: number,
     timbre: TimbreId,
+    pan: number,
+    shared: VoiceSharedResources,
   ): (atTime: number, customFadeSec?: number) => void {
     const now = ctx.currentTime;
     const t0 = Math.max(now + 0.004, chordStart + note.offsetSec);
@@ -289,197 +334,89 @@ export class PolySynth implements SynthEngine {
     const releaseGain = ctx.createGain();
     releaseGain.gain.setValueAtTime(1.0, now);
 
-    const noteFilter = ctx.createBiquadFilter();
-    noteFilter.type = 'lowpass';
-    noteFilter.Q.value = 0.65;
+    const built = buildInstrumentVoice(timbre, {
+      ctx,
+      now,
+      t0,
+      freq,
+      peakGain,
+      note,
+      envGain,
+      shared,
+    });
 
-    const oscs: OscillatorNode[] = [];
-    const auxNodes: AudioNode[] = [noteFilter, envGain, releaseGain];
-
-    let defaultReleaseSec = 0.15;
-
-    if (timbre === 'electric-piano') {
-      defaultReleaseSec = 0.15;
-      const attackSec = 0.014;
-      const sustainRatio = 0.56;
-
-      const startCutoff = note.role === 'bass' ? 2400 : 5200;
-      const endCutoff = note.role === 'bass' ? 1300 : 2500;
-      noteFilter.frequency.setValueAtTime(startCutoff, now);
-      noteFilter.frequency.setValueAtTime(startCutoff, t0);
-      noteFilter.frequency.exponentialRampToValueAtTime(endCutoff, t0 + 1.4);
-
-      // Fundamental sine
-      const fundOsc = ctx.createOscillator();
-      fundOsc.type = 'sine';
-      fundOsc.frequency.setValueAtTime(freq, t0);
-      const fundGain = ctx.createGain();
-      fundGain.gain.value = 0.78;
-      fundOsc.connect(fundGain);
-      fundGain.connect(noteFilter);
-      oscs.push(fundOsc);
-      auxNodes.push(fundGain);
-
-      // Warm sustained triangle body
-      const bodyOsc = ctx.createOscillator();
-      bodyOsc.type = 'triangle';
-      bodyOsc.frequency.setValueAtTime(freq, t0);
-      const bodyGain = ctx.createGain();
-      bodyGain.gain.value = 0.26;
-      bodyOsc.connect(bodyGain);
-      bodyGain.connect(noteFilter);
-      oscs.push(bodyOsc);
-      auxNodes.push(bodyGain);
-
-      // Rhodes 2nd-harmonic bell tine
-      const tineOsc = ctx.createOscillator();
-      tineOsc.type = 'sine';
-      tineOsc.frequency.setValueAtTime(freq * 2, t0);
-      const tineGain = ctx.createGain();
-      const tineInit = note.role === 'bass' ? 0.14 : 0.28;
-      tineGain.gain.setValueAtTime(tineInit, now);
-      tineGain.gain.setValueAtTime(tineInit, t0);
-      tineGain.gain.setTargetAtTime(
-        note.role === 'bass' ? 0.04 : 0.09,
-        t0 + attackSec,
-        0.25,
-      );
-      tineOsc.connect(tineGain);
-      tineGain.connect(noteFilter);
-      oscs.push(tineOsc);
-      auxNodes.push(tineGain);
-
-      // 3rd harmonic clarity
-      const thirdOsc = ctx.createOscillator();
-      thirdOsc.type = 'sine';
-      thirdOsc.frequency.setValueAtTime(freq * 3, t0);
-      const thirdGain = ctx.createGain();
-      const thirdInit = note.role === 'bass' ? 0.05 : 0.11;
-      thirdGain.gain.setValueAtTime(thirdInit, now);
-      thirdGain.gain.setValueAtTime(thirdInit, t0);
-      thirdGain.gain.setTargetAtTime(
-        note.role === 'bass' ? 0.01 : 0.025,
-        t0 + attackSec,
-        0.16,
-      );
-      thirdOsc.connect(thirdGain);
-      thirdGain.connect(noteFilter);
-      oscs.push(thirdOsc);
-      auxNodes.push(thirdGain);
-
-      // Subtle 4th-harmonic chime on harmony attack
-      if (note.role !== 'bass') {
-        const chimeOsc = ctx.createOscillator();
-        chimeOsc.type = 'sine';
-        chimeOsc.frequency.setValueAtTime(freq * 4, t0);
-        const chimeGain = ctx.createGain();
-        chimeGain.gain.setValueAtTime(0.05, now);
-        chimeGain.gain.setValueAtTime(0.05, t0);
-        chimeGain.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.16);
-        chimeOsc.connect(chimeGain);
-        chimeGain.connect(noteFilter);
-        oscs.push(chimeOsc);
-        auxNodes.push(chimeGain);
-      }
-
-      envGain.gain.linearRampToValueAtTime(peakGain, t0 + attackSec);
-      envGain.gain.setTargetAtTime(
-        peakGain * sustainRatio,
-        t0 + attackSec,
-        0.55,
-      );
-    } else {
-      // Clear, airy Soft Pad timbre
-      defaultReleaseSec = 0.26;
-      const attackSec = 0.11;
-
-      const cutoff = note.role === 'bass' ? 1800 : 3000;
-      noteFilter.frequency.setValueAtTime(cutoff, now);
-      noteFilter.frequency.setValueAtTime(cutoff, t0);
-
-      const oscA = ctx.createOscillator();
-      oscA.type = 'triangle';
-      oscA.frequency.setValueAtTime(freq, t0);
-      oscA.detune.setValueAtTime(-4, t0);
-      const gainA = ctx.createGain();
-      gainA.gain.value = 0.48;
-      oscA.connect(gainA);
-      gainA.connect(noteFilter);
-      oscs.push(oscA);
-      auxNodes.push(gainA);
-
-      const oscB = ctx.createOscillator();
-      oscB.type = 'sine';
-      oscB.frequency.setValueAtTime(freq, t0);
-      oscB.detune.setValueAtTime(4, t0);
-      const gainB = ctx.createGain();
-      gainB.gain.value = 0.48;
-      oscB.connect(gainB);
-      gainB.connect(noteFilter);
-      oscs.push(oscB);
-      auxNodes.push(gainB);
-
-      if (note.role !== 'bass') {
-        const airOsc = ctx.createOscillator();
-        airOsc.type = 'sine';
-        airOsc.frequency.setValueAtTime(freq * 2, t0);
-        const airGain = ctx.createGain();
-        airGain.gain.value = 0.12;
-        airOsc.connect(airGain);
-        airGain.connect(noteFilter);
-        oscs.push(airOsc);
-        auxNodes.push(airGain);
-      }
-
-      envGain.gain.linearRampToValueAtTime(peakGain * 0.85, t0 + attackSec);
-    }
-
-    noteFilter.connect(envGain);
     envGain.connect(releaseGain);
-    releaseGain.connect(destination);
+
+    const extraNodes: AudioNode[] = [envGain, releaseGain];
+    if (typeof ctx.createStereoPanner === 'function') {
+      const panner = ctx.createStereoPanner();
+      panner.pan.setValueAtTime(pan, now);
+      releaseGain.connect(panner);
+      panner.connect(destination);
+      extraNodes.push(panner);
+    } else {
+      releaseGain.connect(destination);
+    }
 
     let noteReleased = false;
     const cleanup = () => {
-      for (const osc of oscs) {
+      for (const osc of built.oscs) {
         try {
           osc.disconnect();
         } catch {
           // Ignore already-disconnected nodes.
         }
       }
-      for (const node of auxNodes) {
+      for (const src of built.bufferSources) {
+        try {
+          src.disconnect();
+        } catch {
+          // Ignore
+        }
+      }
+      for (const node of [...built.auxNodes, ...extraNodes]) {
         try {
           node.disconnect();
         } catch {
-          // Ignore already-disconnected nodes.
+          // Ignore
         }
       }
     };
 
-    if (oscs.length > 0) {
-      oscs[0].onended = cleanup;
+    if (built.oscs.length > 0) {
+      built.oscs[0].onended = cleanup;
     }
 
-    for (const osc of oscs) {
+    for (const osc of built.oscs) {
       osc.start(t0);
+    }
+    for (const src of built.bufferSources) {
+      src.start(t0);
     }
 
     const triggerRelease = (atTime: number, customFadeSec?: number) => {
       if (noteReleased) return;
       noteReleased = true;
 
-      const fadeSec = customFadeSec ?? defaultReleaseSec;
+      const fadeSec = customFadeSec ?? built.defaultReleaseSec;
       const releaseStart = Math.max(atTime, ctx.currentTime, t0 + 0.02);
 
       releaseGain.gain.setValueAtTime(1.0, releaseStart);
       releaseGain.gain.linearRampToValueAtTime(0, releaseStart + fadeSec);
 
       const stopAt = releaseStart + fadeSec + 0.04;
-      for (const osc of oscs) {
+      for (const osc of built.oscs) {
         try {
           osc.stop(stopAt);
         } catch {
           // Ignore if oscillator has not started or already stopped.
+        }
+      }
+      for (const src of built.bufferSources) {
+        try {
+          src.stop(stopAt);
+        } catch {
+          // Noise burst normally finishes on its own in 50ms.
         }
       }
     };
@@ -515,9 +452,14 @@ export class PolySynth implements SynthEngine {
       }
     }
     this.graphNodes = [];
+    this.irCache.clear();
+    this.sharedResources = null;
     this.ctx = null;
     this.chordBus = null;
     this.chordLevelGain = null;
+    this.dryGain = null;
+    this.wetGain = null;
+    this.convolver = null;
     this.voiceBus = null;
     this.compressor = null;
   }

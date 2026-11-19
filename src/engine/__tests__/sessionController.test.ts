@@ -4,6 +4,7 @@ import type { ChordVoiceHandle, SynthEngine } from '../../audio/synth';
 import type { ScheduledNote } from '../../music/arrangement';
 import {
   DEFAULT_SETTINGS,
+  type AmbienceMode,
   type PitchClass,
   type SessionSettings,
   type TimbreId,
@@ -27,8 +28,9 @@ interface RecordedChord {
 class FakeSynth implements SynthEngine {
   currentTime = 0;
   ducked = false;
-  chordVolume = 0.85;
-  voiceVolume = 0.85;
+  chordVolume = 0.75;
+  voiceVolume = 0.65;
+  ambience: AmbienceMode = 'warm-room';
   chords: RecordedChord[] = [];
   releaseAllCount = 0;
   private stateListeners = new Set<(s: string) => void>();
@@ -79,6 +81,10 @@ class FakeSynth implements SynthEngine {
 
   setVoiceVolume(volume: number): void {
     this.voiceVolume = volume;
+  }
+
+  setAmbience(mode: AmbienceMode): void {
+    this.ambience = mode;
   }
 
   onStateChange(cb: (state: string) => void): () => void {
@@ -556,5 +562,30 @@ describe('SessionController state machine & scheduler', () => {
     expect(controller.getSnapshot().isRunning).toBe(false);
     expect(vi.isMockFunction(announcer.cancel)).toBe(false);
     expect(announcer.cancelCalls).toBeGreaterThanOrEqual(2);
+  });
+
+  it('auditions a warm preview chord while idle, replaces prior preview, and skips while running', () => {
+    const { controller, synth } = createHarness({
+      timbre: 'felt-piano',
+      ambience: 'warm-room',
+    });
+
+    controller.previewSound('warm-rhodes', 'lush-hall');
+    expect(synth.chords).toHaveLength(1);
+    expect(synth.chords[0].timbre).toBe('warm-rhodes');
+    expect(synth.ambience).toBe('lush-hall');
+
+    // Second preview cleanly releases first preview chord
+    controller.previewSound('soft-vibes', 'dry');
+    expect(synth.chords).toHaveLength(2);
+    expect(synth.chords[0].releasedAt).not.toBeNull();
+    expect(synth.chords[1].timbre).toBe('soft-vibes');
+    expect(synth.ambience).toBe('dry');
+
+    // While running, previewSound is a no-op
+    controller.start();
+    const countWhileRunning = synth.chords.length;
+    controller.previewSound('velvet-pad', 'warm-room');
+    expect(synth.chords).toHaveLength(countWhileRunning);
   });
 });

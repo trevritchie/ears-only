@@ -15,6 +15,7 @@ export function App() {
     stop,
     replayQuestion,
     skipToAnswer,
+    previewSound,
   } = useEarTrainer();
 
   return (
@@ -44,6 +45,7 @@ export function App() {
         isRunning={snapshot.isRunning}
         voices={voices}
         onUpdate={updateSettings}
+        onPreviewSound={previewSound}
       />
     </main>
   );

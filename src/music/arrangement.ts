@@ -12,17 +12,26 @@ export interface ScheduledNote {
 }
 
 export interface ArrangementStrategy {
-  arrangeChord(voiced: VoicedChord, slotDurationSec: number | null): ScheduledNote[];
+  arrangeChord(
+    voiced: VoicedChord,
+    slotDurationSec: number | null,
+    rollStepSec?: number,
+  ): ScheduledNote[];
 }
 
 /**
- * Plays sustained harmonic block chords with a subtle 8ms upward micro-roll
- * across upper voices to prevent harsh phase-locked oscillator transients.
+ * Plays sustained harmonic block chords with an instrument-tailored micro-roll
+ * across upper voices and minimal inter-chord gap so release tails overlap
+ * smoothly like a sustain pedal.
  */
 export class WarmBlockArrangement implements ArrangementStrategy {
-  arrangeChord(voiced: VoicedChord, slotDurationSec: number | null): ScheduledNote[] {
+  arrangeChord(
+    voiced: VoicedChord,
+    slotDurationSec: number | null,
+    rollStepSec = 0.01,
+  ): ScheduledNote[] {
     const fixedDuration =
-      slotDurationSec === null ? null : Math.max(0.18, slotDurationSec - 0.04);
+      slotDurationSec === null ? null : Math.max(0.18, slotDurationSec - 0.015);
 
     const notes: ScheduledNote[] = [
       {
@@ -35,7 +44,7 @@ export class WarmBlockArrangement implements ArrangementStrategy {
     ];
 
     voiced.upperMidis.forEach((midi, index) => {
-      const offsetSec = (index + 1) * 0.008;
+      const offsetSec = (index + 1) * rollStepSec;
       notes.push({
         midi,
         offsetSec,

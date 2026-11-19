@@ -98,8 +98,29 @@ describe('ears-only App UI', () => {
       screen.getByText(/Seven minor seven flat five/i),
     ).toBeInTheDocument();
 
-    // Switch to Soft Pad, enable Drone, pick scale tone 5, and verify mix sliders exist
-    await user.click(screen.getByRole('button', { name: 'Soft Pad' }));
+    // Verify all 6 instruments and 3 space modes render with Felt Piano + Warm Room default
+    expect(
+      screen.getByRole('button', { name: /felt piano/i }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.getByRole('button', { name: /warm rhodes/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /velvet pad/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /soft vibes/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /electric piano/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /warm room/i }),
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    // Switch to Soft Pad & Lush Hall, enable Drone, pick scale tone 5, and verify mix sliders exist
+    await user.click(screen.getByRole('button', { name: /soft pad/i }));
+    await user.click(screen.getByRole('button', { name: /lush hall/i }));
     expect(screen.getByLabelText(/chords volume/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/voice volume/i)).toBeInTheDocument();
     expect(screen.queryByText(/fixed pitch/i)).not.toBeInTheDocument();
@@ -129,6 +150,7 @@ describe('ears-only App UI', () => {
     );
     expect(saved.halfDimNaming).toBe('minor-seven-flat-five');
     expect(saved.timbre).toBe('soft-pad');
+    expect(saved.ambience).toBe('lush-hall');
     expect(saved.droneEnabled).toBe(true);
     expect(saved.droneScaleDegree).toBe(5);
     expect(saved.keyMode).toBe('auto-rotate');

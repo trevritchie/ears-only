@@ -9,7 +9,9 @@ import type { SpeechVoiceOption } from '../engine/speech';
 import {
   loadSettings,
   saveSettings,
+  type AmbienceMode,
   type SessionSettings,
+  type TimbreId,
 } from '../types/settings';
 
 function createInitialSnapshot(settings: SessionSettings): SessionSnapshot {
@@ -119,6 +121,13 @@ export function useEarTrainer() {
     controllerRef.current?.skipToAnswer();
   }, []);
 
+  const previewSound = useCallback(
+    (timbre?: TimbreId, ambience?: AmbienceMode) => {
+      controllerRef.current?.previewSound(timbre, ambience);
+    },
+    [],
+  );
+
   return {
     settings,
     updateSettings,
@@ -128,5 +137,6 @@ export function useEarTrainer() {
     stop,
     replayQuestion,
     skipToAnswer,
+    previewSound,
   };
 }

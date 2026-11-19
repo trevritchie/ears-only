@@ -12,7 +12,14 @@ export type SeventhId =
 
 export type ChordId = TriadId | SeventhId;
 
-export type TimbreId = 'electric-piano' | 'soft-pad';
+export type TimbreId =
+  | 'felt-piano'
+  | 'warm-rhodes'
+  | 'velvet-pad'
+  | 'soft-vibes'
+  | 'electric-piano'
+  | 'soft-pad';
+export type AmbienceMode = 'dry' | 'warm-room' | 'lush-hall';
 export type KeyMode = 'fixed' | 'auto-rotate';
 export type KeyOrientationMode = 'cadence' | 'tonic' | 'none';
 export type ScaleDegree = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -27,6 +34,7 @@ export interface SessionSettings {
   playChordsBehindAnswer: boolean;
   playFinalReplayAfterAnswer: boolean;
   timbre: TimbreId;
+  ambience: AmbienceMode;
   chordVolume: number;
   voiceVolume: number;
   keyMode: KeyMode;
@@ -72,7 +80,8 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   questionRepeats: 2,
   playChordsBehindAnswer: true,
   playFinalReplayAfterAnswer: false,
-  timbre: 'electric-piano',
+  timbre: 'felt-piano',
+  ambience: 'warm-room',
   chordVolume: 0.75,
   voiceVolume: 0.65,
   keyMode: 'auto-rotate',
@@ -126,10 +135,26 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
     }
   }
 
+  const validTimbres: readonly TimbreId[] = [
+    'felt-piano',
+    'warm-rhodes',
+    'velvet-pad',
+    'soft-vibes',
+    'electric-piano',
+    'soft-pad',
+  ];
   const timbre: TimbreId =
-    obj.timbre === 'soft-pad' || obj.timbre === 'electric-piano'
-      ? obj.timbre
+    typeof obj.timbre === 'string' &&
+    (validTimbres as readonly string[]).includes(obj.timbre)
+      ? (obj.timbre as TimbreId)
       : DEFAULT_SETTINGS.timbre;
+
+  const ambience: AmbienceMode =
+    obj.ambience === 'dry' ||
+    obj.ambience === 'warm-room' ||
+    obj.ambience === 'lush-hall'
+      ? obj.ambience
+      : DEFAULT_SETTINGS.ambience;
 
   const keyMode: KeyMode =
     obj.keyMode === 'auto-rotate' || obj.keyMode === 'fixed'
@@ -181,6 +206,7 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
         ? obj.playFinalReplayAfterAnswer
         : DEFAULT_SETTINGS.playFinalReplayAfterAnswer,
     timbre,
+    ambience,
     chordVolume: hasCalibratedVolumes
       ? clampNumber(obj.chordVolume, 0, 1, DEFAULT_SETTINGS.chordVolume)
       : DEFAULT_SETTINGS.chordVolume,

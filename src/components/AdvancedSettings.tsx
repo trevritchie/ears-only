@@ -1,5 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { INSTRUMENT_PRESETS } from '../audio/instruments';
+import { AMBIENCE_OPTIONS } from '../audio/reverb';
 import type { SpeechVoiceOption } from '../engine/speech';
 import {
   getMajorKeyInfo,
@@ -7,9 +9,11 @@ import {
   MAJOR_KEYS,
 } from '../music/chords';
 import type {
+  AmbienceMode,
   PitchClass,
   ScaleDegree,
   SessionSettings,
+  TimbreId,
 } from '../types/settings';
 
 const SCALE_DEGREES: readonly ScaleDegree[] = [1, 2, 3, 4, 5, 6, 7];
@@ -20,6 +24,7 @@ interface AdvancedSettingsProps {
   isRunning: boolean;
   voices: SpeechVoiceOption[];
   onUpdate: (patch: Partial<SessionSettings>) => void;
+  onPreviewSound: (timbre?: TimbreId, ambience?: AmbienceMode) => void;
 }
 
 interface SwitchRowProps {
@@ -77,6 +82,7 @@ export function AdvancedSettings({
   isRunning,
   voices,
   onUpdate,
+  onPreviewSound,
 }: AdvancedSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const droneResolvedPitch = getMajorKeyInfo(
@@ -137,30 +143,75 @@ export function AdvancedSettings({
             />
 
             <div>
-              <span className="block text-sm font-medium text-[#F3EFE6]">
-                Sound
-              </span>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="block text-sm font-medium text-[#F3EFE6]">
+                  Sound
+                </span>
+                {!isRunning && (
+                  <span className="text-xs text-[#9CA3AE]">Tap to preview</span>
+                )}
+              </div>
               <div
                 className="mt-1.5 grid grid-cols-2 gap-1.5"
                 role="group"
                 aria-label="Synth sound"
               >
-                {(
-                  [
-                    { id: 'electric-piano', label: 'Electric Piano' },
-                    { id: 'soft-pad', label: 'Soft Pad' },
-                  ] as const
-                ).map((option) => {
+                {INSTRUMENT_PRESETS.map((option) => {
                   const active = settings.timbre === option.id;
                   return (
                     <button
                       key={option.id}
                       type="button"
                       aria-pressed={active}
-                      onClick={() => onUpdate({ timbre: option.id })}
-                      className={`min-h-[42px] rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
+                      onClick={() => {
+                        onUpdate({ timbre: option.id });
+                        onPreviewSound(option.id, settings.ambience);
+                      }}
+                      className={`flex min-h-[52px] flex-col items-start justify-center rounded-xl border px-3 py-2 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
                         active
                           ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
+                          : 'border-[#343C47] bg-[#252B33] text-[#F3EFE6] hover:border-[#495463]'
+                      }`}
+                    >
+                      <span className="text-xs font-semibold leading-tight">
+                        {option.label}
+                      </span>
+                      <span
+                        className={`mt-0.5 text-[11px] leading-tight ${
+                          active ? 'text-[#E5A93C]/85' : 'text-[#9CA3AE]'
+                        }`}
+                      >
+                        {option.subtitle}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <span className="block text-sm font-medium text-[#F3EFE6]">
+                Space
+              </span>
+              <div
+                className="mt-1.5 grid grid-cols-3 gap-1.5"
+                role="group"
+                aria-label="Room ambience"
+              >
+                {AMBIENCE_OPTIONS.map((option) => {
+                  const active = settings.ambience === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        onUpdate({ ambience: option.id });
+                        onPreviewSound(settings.timbre, option.id);
+                      }}
+                      className={`min-h-[40px] rounded-xl border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
+                        active
+                          ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
                           : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
                       }`}
                     >
