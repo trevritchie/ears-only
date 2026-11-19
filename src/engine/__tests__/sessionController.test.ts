@@ -27,6 +27,8 @@ interface RecordedChord {
 class FakeSynth implements SynthEngine {
   currentTime = 0;
   ducked = false;
+  chordVolume = 0.85;
+  voiceVolume = 0.85;
   chords: RecordedChord[] = [];
   releaseAllCount = 0;
   private stateListeners = new Set<(s: string) => void>();
@@ -69,6 +71,14 @@ class FakeSynth implements SynthEngine {
 
   setDucked(ducked: boolean): void {
     this.ducked = ducked;
+  }
+
+  setChordVolume(volume: number): void {
+    this.chordVolume = volume;
+  }
+
+  setVoiceVolume(volume: number): void {
+    this.voiceVolume = volume;
   }
 
   onStateChange(cb: (state: string) => void): () => void {
@@ -291,6 +301,8 @@ describe('SessionController state machine & scheduler', () => {
       progressionLength: 2,
       questionRepeats: 2,
       repeatPauseSec: 1.0,
+      keyMode: 'fixed',
+      fixedKey: 0,
       keyOrientation: 'cadence',
     });
 
@@ -458,22 +470,40 @@ describe('SessionController state machine & scheduler', () => {
     expect(controller.getSnapshot().revealedCount).toBe(2);
   });
 
-  it('auto-rotates key every K questions, updates matching drone, and orients the new key', () => {
-    const { controller, drone, announcer, synth, clock } = createHarness(
+  it('auto-rotates key every K questions, updates scale-tone drone, and applies mix volumes', () => {
+    const { controller, synth, drone, announcer, clock } = createHarness(
       {
-        keyMode: 'auto-rotate',
         rotateEveryNQuestions: 2,
         keyOrientation: 'cadence',
         droneEnabled: true,
-        droneMode: 'match-key',
+        droneScaleDegree: 5, // 5th (+7 semitones) of active key
+        chordVolume: 0.6,
+        voiceVolume: 0.95,
       },
       [0.0, 0.2, 0.4, 0.6, 0.8],
     );
 
+    expect(DEFAULT_SETTINGS.keyMode).toBe('auto-rotate');
+
     controller.start();
     const initialKey = controller.getSnapshot().activeKey;
+    expect(synth.chordVolume).toBe(0.6);
+    expect(synth.voiceVolume).toBe(0.95);
     expect(drone.active).toBe(true);
-    expect(drone.pitch).toBe(initialKey);
+    expect(drone.pitch).toBe((initialKey + 7) % 12);
+
+    // Live mix volume update propagates immediately
+    controller.updateSettings({
+      ...DEFAULT_SETTINGS,
+      rotateEveryNQuestions: 2,
+      keyOrientation: 'cadence',
+      droneEnabled: true,
+      droneScaleDegree: 5,
+      chordVolume: 0.4,
+      voiceVolume: 1.0,
+    });
+    expect(synth.chordVolume).toBe(0.4);
+    expect(synth.voiceVolume).toBe(1.0);
 
     // Complete Q1 via skip-through-answer -> next
     controller.skipToAnswer();
@@ -481,14 +511,14 @@ describe('SessionController state machine & scheduler', () => {
     expect(controller.getSnapshot().questionNumber).toBe(2);
     expect(controller.getSnapshot().activeKey).toBe(initialKey);
 
-    // Complete Q2 -> rotates on Q3!
+    // Complete Q2 -> rotates on Q3 and shifts drone to 5th of new key!
     controller.skipToAnswer();
     controller.skipToAnswer();
     const q3Snap = controller.getSnapshot();
     expect(q3Snap.questionNumber).toBe(3);
     expect(q3Snap.activeKey).not.toBe(initialKey);
     expect(q3Snap.phase).toBe('orienting_voice');
-    expect(drone.pitch).toBe(q3Snap.activeKey);
+    expect(drone.pitch).toBe((q3Snap.activeKey + 7) % 12);
 
     // Finish orientation speech cleanly
     announcer.finishLatest();

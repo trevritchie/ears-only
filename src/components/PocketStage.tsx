@@ -8,11 +8,16 @@ interface PocketStageProps {
   settings: SessionSettings;
 }
 
-function getPhaseLabel(snapshot: SessionSnapshot): string {
+function getPhaseLabel(
+  snapshot: SessionSnapshot,
+  settings: SessionSettings,
+): string {
   const keyInfo = getMajorKeyInfo(snapshot.activeKey);
   switch (snapshot.phase) {
     case 'idle':
-      return `Ready in ${keyInfo.displayName}`;
+      return settings.keyMode === 'auto-rotate'
+        ? 'Ready · Auto-rotate keys'
+        : `Ready in ${keyInfo.displayName}`;
     case 'orienting_voice':
     case 'orienting_cadence':
       return `Key of ${keyInfo.shortName} — orienting`;
@@ -35,6 +40,10 @@ function getPhaseLabel(snapshot: SessionSnapshot): string {
 
 export function PocketStage({ snapshot, settings }: PocketStageProps) {
   const keyInfo = getMajorKeyInfo(snapshot.activeKey);
+  const keyBadgeLabel =
+    !snapshot.isRunning && settings.keyMode === 'auto-rotate'
+      ? 'Auto key'
+      : keyInfo.displayName;
   const isOrienting =
     (snapshot.phase === 'orienting_voice' ||
       snapshot.phase === 'orienting_cadence') &&
@@ -56,7 +65,7 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
             ears-only
           </h1>
           <span className="rounded-md border border-[#343C47] bg-[#252B33] px-2.5 py-0.5 text-xs font-medium text-[#F3EFE6]">
-            {keyInfo.displayName}
+            {keyBadgeLabel}
           </span>
         </div>
 
@@ -89,7 +98,7 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
       {/* Phase status readout */}
       <div className="mt-3 flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-[#9CA3AE]" aria-live="polite">
-          {getPhaseLabel(snapshot)}
+          {getPhaseLabel(snapshot, settings)}
         </p>
         {!snapshot.isRunning && (
           <span className="text-xs text-[#9CA3AE] tabular-nums">

@@ -40,6 +40,8 @@ export function App() {
 
       <AdvancedSettings
         settings={settings}
+        activeKey={snapshot.activeKey}
+        isRunning={snapshot.isRunning}
         voices={voices}
         onUpdate={updateSettings}
       />

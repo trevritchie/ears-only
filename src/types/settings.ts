@@ -15,7 +15,7 @@ export type ChordId = TriadId | SeventhId;
 export type TimbreId = 'electric-piano' | 'soft-pad';
 export type KeyMode = 'fixed' | 'auto-rotate';
 export type KeyOrientationMode = 'cadence' | 'tonic' | 'none';
-export type DroneMode = 'fixed' | 'match-key';
+export type ScaleDegree = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type HalfDimNaming = 'half-diminished' | 'minor-seven-flat-five';
 export type VoiceSource = 'recorded' | 'speech-synthesis';
 
@@ -27,13 +27,14 @@ export interface SessionSettings {
   playChordsBehindAnswer: boolean;
   playFinalReplayAfterAnswer: boolean;
   timbre: TimbreId;
+  chordVolume: number;
+  voiceVolume: number;
   keyMode: KeyMode;
   fixedKey: PitchClass;
   rotateEveryNQuestions: number;
   keyOrientation: KeyOrientationMode;
   droneEnabled: boolean;
-  droneMode: DroneMode;
-  dronePitch: PitchClass;
+  droneScaleDegree: ScaleDegree;
   droneVolume: number;
   repeatPauseSec: number;
   speechRate: number;
@@ -71,13 +72,14 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   playChordsBehindAnswer: true,
   playFinalReplayAfterAnswer: false,
   timbre: 'electric-piano',
-  keyMode: 'fixed',
+  chordVolume: 0.85,
+  voiceVolume: 0.85,
+  keyMode: 'auto-rotate',
   fixedKey: 0,
   rotateEveryNQuestions: 5,
   keyOrientation: 'cadence',
   droneEnabled: false,
-  droneMode: 'fixed',
-  dronePitch: 0,
+  droneScaleDegree: 1,
   droneVolume: 0.35,
   repeatPauseSec: 1.2,
   speechRate: 1.0,
@@ -140,11 +142,6 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       ? obj.keyOrientation
       : DEFAULT_SETTINGS.keyOrientation;
 
-  const droneMode: DroneMode =
-    obj.droneMode === 'fixed' || obj.droneMode === 'match-key'
-      ? obj.droneMode
-      : DEFAULT_SETTINGS.droneMode;
-
   const halfDimNaming: HalfDimNaming =
     obj.halfDimNaming === 'half-diminished' ||
     obj.halfDimNaming === 'minor-seven-flat-five'
@@ -180,6 +177,18 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
         ? obj.playFinalReplayAfterAnswer
         : DEFAULT_SETTINGS.playFinalReplayAfterAnswer,
     timbre,
+    chordVolume: clampNumber(
+      obj.chordVolume,
+      0,
+      1,
+      DEFAULT_SETTINGS.chordVolume,
+    ),
+    voiceVolume: clampNumber(
+      obj.voiceVolume,
+      0,
+      1,
+      DEFAULT_SETTINGS.voiceVolume,
+    ),
     keyMode,
     fixedKey: sanitizePitchClass(obj.fixedKey, DEFAULT_SETTINGS.fixedKey),
     rotateEveryNQuestions: clampInt(
@@ -193,8 +202,12 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       typeof obj.droneEnabled === 'boolean'
         ? obj.droneEnabled
         : DEFAULT_SETTINGS.droneEnabled,
-    droneMode,
-    dronePitch: sanitizePitchClass(obj.dronePitch, DEFAULT_SETTINGS.dronePitch),
+    droneScaleDegree: clampInt(
+      obj.droneScaleDegree,
+      1,
+      7,
+      DEFAULT_SETTINGS.droneScaleDegree,
+    ) as ScaleDegree,
     droneVolume: clampNumber(obj.droneVolume, 0, 1, DEFAULT_SETTINGS.droneVolume),
     repeatPauseSec: clampNumber(
       obj.repeatPauseSec,

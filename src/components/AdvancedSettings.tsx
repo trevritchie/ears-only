@@ -1,11 +1,23 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import type { SpeechVoiceOption } from '../engine/speech';
-import { MAJOR_KEYS } from '../music/chords';
-import type { SessionSettings } from '../types/settings';
+import {
+  getMajorKeyInfo,
+  getScaleDegreePitchClass,
+  MAJOR_KEYS,
+} from '../music/chords';
+import type {
+  PitchClass,
+  ScaleDegree,
+  SessionSettings,
+} from '../types/settings';
+
+const SCALE_DEGREES: readonly ScaleDegree[] = [1, 2, 3, 4, 5, 6, 7];
 
 interface AdvancedSettingsProps {
   settings: SessionSettings;
+  activeKey: PitchClass;
+  isRunning: boolean;
   voices: SpeechVoiceOption[];
   onUpdate: (patch: Partial<SessionSettings>) => void;
 }
@@ -61,10 +73,16 @@ function SwitchRow({
 
 export function AdvancedSettings({
   settings,
+  activeKey,
+  isRunning,
   voices,
   onUpdate,
 }: AdvancedSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const droneResolvedPitch = getMajorKeyInfo(
+    getScaleDegreePitchClass(activeKey, settings.droneScaleDegree),
+  ).shortName;
+  const showResolvedDroneNote = isRunning || settings.keyMode === 'fixed';
 
   return (
     <section
@@ -150,6 +168,60 @@ export function AdvancedSettings({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <label
+                    htmlFor="chords-volume-slider"
+                    className="text-sm font-medium text-[#F3EFE6]"
+                  >
+                    Chords volume
+                  </label>
+                  <span className="text-sm font-semibold text-[#E5A93C] tabular-nums">
+                    {Math.round(settings.chordVolume * 100)}%
+                  </span>
+                </div>
+                <input
+                  id="chords-volume-slider"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.chordVolume}
+                  onChange={(e) =>
+                    onUpdate({ chordVolume: Number(e.target.value) })
+                  }
+                  className="studio-slider mt-1"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <label
+                    htmlFor="voice-volume-slider"
+                    className="text-sm font-medium text-[#F3EFE6]"
+                  >
+                    Voice volume
+                  </label>
+                  <span className="text-sm font-semibold text-[#4FB3A4] tabular-nums">
+                    {Math.round(settings.voiceVolume * 100)}%
+                  </span>
+                </div>
+                <input
+                  id="voice-volume-slider"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.voiceVolume}
+                  onChange={(e) =>
+                    onUpdate({ voiceVolume: Number(e.target.value) })
+                  }
+                  className="studio-slider mt-1"
+                />
               </div>
             </div>
           </div>
@@ -283,78 +355,55 @@ export function AdvancedSettings({
             </div>
           </div>
 
-          {/* 3. Chromatic Drone */}
+          {/* 3. Drone */}
           <div className="space-y-3 border-t border-[#2B323B] pt-4">
-            <h3 className="text-xs font-semibold text-[#9CA3AE]">
-              Chromatic drone
-            </h3>
+            <h3 className="text-xs font-semibold text-[#9CA3AE]">Drone</h3>
 
             <SwitchRow
               id="toggle-drone"
-              label="Enable chromatic drone"
-              description="Warm low reference pitch while session runs"
+              label="Enable drone"
+              description="Warm reference tone matched to the active key"
               checked={settings.droneEnabled}
               onChange={(checked) => onUpdate({ droneEnabled: checked })}
             />
 
-            <div
-              className="grid grid-cols-2 gap-1.5"
-              role="group"
-              aria-label="Drone pitch mode"
-            >
-              {(
-                [
-                  { id: 'fixed', label: 'Fixed pitch' },
-                  { id: 'match-key', label: 'Match active key' },
-                ] as const
-              ).map((option) => {
-                const active = settings.droneMode === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => onUpdate({ droneMode: option.id })}
-                    className={`min-h-[40px] rounded-xl border px-3 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
-                      active
-                        ? 'border-[#E5A93C] bg-[#E5A93C]/20 text-[#E5A93C]'
-                        : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {settings.droneMode === 'fixed' && (
-              <div>
-                <span className="block text-xs font-medium text-[#9CA3AE]">
-                  Drone pitch
+            <div>
+              <div className="flex items-baseline justify-between">
+                <span className="block text-sm font-medium text-[#F3EFE6]">
+                  Scale tone
                 </span>
-                <div className="mt-1.5 grid grid-cols-6 gap-1.5">
-                  {MAJOR_KEYS.map((key) => {
-                    const active = settings.dronePitch === key.pitchClass;
-                    return (
-                      <button
-                        key={key.pitchClass}
-                        type="button"
-                        aria-pressed={active}
-                        aria-label={`Drone ${key.shortName}`}
-                        onClick={() => onUpdate({ dronePitch: key.pitchClass })}
-                        className={`flex min-h-[40px] items-center justify-center rounded-xl border text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
-                          active
-                            ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
-                            : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
-                        }`}
-                      >
-                        {key.shortName}
-                      </button>
-                    );
-                  })}
-                </div>
+                <span className="text-xs font-medium text-[#4FB3A4] tabular-nums">
+                  {showResolvedDroneNote
+                    ? `Degree ${settings.droneScaleDegree} · ${droneResolvedPitch}`
+                    : `Degree ${settings.droneScaleDegree}`}
+                </span>
               </div>
-            )}
+              <div
+                className="mt-1.5 grid grid-cols-7 gap-1.5"
+                role="group"
+                aria-label="Drone scale tone"
+              >
+                {SCALE_DEGREES.map((degree) => {
+                  const active = settings.droneScaleDegree === degree;
+                  return (
+                    <button
+                      key={degree}
+                      type="button"
+                      aria-pressed={active}
+                      aria-label={`Scale tone ${degree}`}
+                      onClick={() => onUpdate({ droneScaleDegree: degree })}
+                      className={`flex min-h-[42px] items-center justify-center rounded-xl border text-sm font-semibold tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
+                        active
+                          ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
+                          : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'
+                      }`}
+                    >
+                      {degree}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <div>
               <div className="flex items-baseline justify-between">

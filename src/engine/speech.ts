@@ -11,6 +11,7 @@ export interface SpeakOptions {
   rate: number;
   voiceURI: string | null;
   estimatedSyllables: number;
+  volume?: number;
   onStart?: () => void;
   onEnd?: () => void;
 }
@@ -180,7 +181,7 @@ export class WebSpeechAnnouncer implements VoiceAnnouncer {
     }
     utterance.rate = Math.max(0.5, Math.min(2.0, options.rate));
     utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+    utterance.volume = Math.max(0, Math.min(1, options.volume ?? 1.0));
 
     // Hold a strong reference so browsers do not GC the utterance before onend fires.
     this.activeUtterance = utterance;

@@ -13,7 +13,7 @@ describe('ears-only App UI', () => {
     render(<App />);
 
     expect(screen.getByText('ears-only')).toBeInTheDocument();
-    expect(screen.getByText('C Major')).toBeInTheDocument();
+    expect(screen.getByText('Auto key')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /start pocket mode/i }),
     ).toBeInTheDocument();
@@ -98,11 +98,20 @@ describe('ears-only App UI', () => {
       screen.getByText(/Seven minor seven flat five/i),
     ).toBeInTheDocument();
 
-    // Switch to Soft Pad & enable Drone
+    // Switch to Soft Pad, enable Drone, pick scale tone 5, and verify mix sliders exist
     await user.click(screen.getByRole('button', { name: 'Soft Pad' }));
-    await user.click(
-      screen.getByRole('switch', { name: /enable chromatic drone/i }),
-    );
+    expect(screen.getByLabelText(/chords volume/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/voice volume/i)).toBeInTheDocument();
+    expect(screen.queryByText(/fixed pitch/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/chromatic drone/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('switch', { name: /^enable drone$/i }));
+    await user.click(screen.getByRole('button', { name: 'Scale tone 5' }));
+
+    // Default Key mode is Auto-rotate
+    expect(
+      screen.getByRole('button', { name: /auto-rotate/i }),
+    ).toHaveAttribute('aria-pressed', 'true');
 
     // Default Voice source is Built-in (Pocket); switching to Browser TTS reveals Voice dropdown
     expect(
@@ -121,6 +130,10 @@ describe('ears-only App UI', () => {
     expect(saved.halfDimNaming).toBe('minor-seven-flat-five');
     expect(saved.timbre).toBe('soft-pad');
     expect(saved.droneEnabled).toBe(true);
+    expect(saved.droneScaleDegree).toBe(5);
+    expect(saved.keyMode).toBe('auto-rotate');
+    expect(saved.chordVolume).toBe(0.85);
+    expect(saved.voiceVolume).toBe(0.85);
     expect(saved.voiceSource).toBe('speech-synthesis');
   });
 });

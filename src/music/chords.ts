@@ -2,6 +2,7 @@ import type {
   ChordId,
   HalfDimNaming,
   PitchClass,
+  ScaleDegree,
   SeventhId,
   TriadId,
 } from '../types/settings';
@@ -36,6 +37,13 @@ export const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11] as const;
 
 export function getMajorScalePitchClasses(key: PitchClass): Set<number> {
   return new Set(MAJOR_SCALE_INTERVALS.map((interval) => (key + interval) % 12));
+}
+
+export function getScaleDegreePitchClass(
+  key: PitchClass,
+  degree: ScaleDegree,
+): PitchClass {
+  return ((key + MAJOR_SCALE_INTERVALS[degree - 1]) % 12) as PitchClass;
 }
 
 export const TRIAD_IDS: readonly TriadId[] = [

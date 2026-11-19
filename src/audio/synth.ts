@@ -17,6 +17,8 @@ export interface SynthEngine {
   ): ChordVoiceHandle;
   releaseAll(fadeSec?: number): void;
   setDucked(ducked: boolean, atTime?: number): void;
+  setChordVolume(volume: number): void;
+  setVoiceVolume(volume: number): void;
   onStateChange(cb: (state: string) => void): () => void;
   dispose(): void;
 }
@@ -49,6 +51,7 @@ function createRoomImpulseResponse(ctx: AudioContext): AudioBuffer {
 export class PolySynth implements SynthEngine {
   private ctx: AudioContext | null = null;
   private chordBus: GainNode | null = null;
+  private chordLevelGain: GainNode | null = null;
   private voiceBus: GainNode | null = null;
   private compressor: DynamicsCompressorNode | null = null;
   private graphNodes: AudioNode[] = [];
@@ -56,6 +59,8 @@ export class PolySynth implements SynthEngine {
   private activeVoices = new Set<InternalVoiceEntry>();
   private stateListeners = new Set<(state: string) => void>();
   private isDucked = false;
+  private chordVolume = 0.85;
+  private voiceVolume = 0.85;
   private stateChangeBound: (() => void) | null = null;
 
   private initGraph(): AudioContext {
@@ -70,6 +75,9 @@ export class PolySynth implements SynthEngine {
 
     const chordBus = ctx.createGain();
     chordBus.gain.value = this.isDucked ? 0.28 : 1.0;
+
+    const chordLevelGain = ctx.createGain();
+    chordLevelGain.gain.value = this.chordVolume * 1.15;
 
     const warmthFilter = ctx.createBiquadFilter();
     warmthFilter.type = 'lowpass';
@@ -91,7 +99,7 @@ export class PolySynth implements SynthEngine {
     convolver.buffer = createRoomImpulseResponse(ctx);
 
     const voiceBus = ctx.createGain();
-    voiceBus.gain.value = 1.15;
+    voiceBus.gain.value = this.voiceVolume * 1.35;
 
     const compressor = ctx.createDynamicsCompressor();
     compressor.threshold.value = -6;
@@ -103,7 +111,8 @@ export class PolySynth implements SynthEngine {
     const masterGain = ctx.createGain();
     masterGain.gain.value = 0.95;
 
-    chordBus.connect(warmthFilter);
+    chordBus.connect(chordLevelGain);
+    chordLevelGain.connect(warmthFilter);
     warmthFilter.connect(presenceShelf);
     presenceShelf.connect(dryGain);
     presenceShelf.connect(convolver);
@@ -125,10 +134,12 @@ export class PolySynth implements SynthEngine {
 
     this.ctx = ctx;
     this.chordBus = chordBus;
+    this.chordLevelGain = chordLevelGain;
     this.voiceBus = voiceBus;
     this.compressor = compressor;
     this.graphNodes = [
       chordBus,
+      chordLevelGain,
       warmthFilter,
       presenceShelf,
       dryGain,
@@ -189,6 +200,26 @@ export class PolySynth implements SynthEngine {
     const t = Math.max(this.ctx.currentTime, atTime ?? this.ctx.currentTime);
     const target = ducked ? 0.28 : 1.0;
     this.chordBus.gain.setTargetAtTime(target, t, 0.06);
+  }
+
+  setChordVolume(volume: number): void {
+    this.chordVolume = Math.max(0, Math.min(1, volume));
+    if (!this.ctx || !this.chordLevelGain) return;
+    this.chordLevelGain.gain.setTargetAtTime(
+      this.chordVolume * 1.15,
+      this.ctx.currentTime,
+      0.04,
+    );
+  }
+
+  setVoiceVolume(volume: number): void {
+    this.voiceVolume = Math.max(0, Math.min(1, volume));
+    if (!this.ctx || !this.voiceBus) return;
+    this.voiceBus.gain.setTargetAtTime(
+      this.voiceVolume * 1.35,
+      this.ctx.currentTime,
+      0.04,
+    );
   }
 
   playChord(
@@ -485,6 +516,7 @@ export class PolySynth implements SynthEngine {
     this.graphNodes = [];
     this.ctx = null;
     this.chordBus = null;
+    this.chordLevelGain = null;
     this.voiceBus = null;
     this.compressor = null;
   }

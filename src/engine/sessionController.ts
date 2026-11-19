@@ -9,6 +9,7 @@ import {
 import {
   CHORD_DEFS,
   getMajorKeyInfo,
+  getScaleDegreePitchClass,
   getSpokenChordPhrase,
 } from '../music/chords';
 import {
@@ -212,9 +213,7 @@ export class SessionController {
   }
 
   private resolveDronePitch(key: PitchClass): PitchClass {
-    return this.settings.droneMode === 'match-key'
-      ? key
-      : this.settings.dronePitch;
+    return getScaleDegreePitchClass(key, this.settings.droneScaleDegree);
   }
 
   private syncDrone(): void {
@@ -304,6 +303,8 @@ export class SessionController {
         : this.settings.fixedKey;
 
     this.announcer.preload?.(this.getPreloadPhrases());
+    this.synth.setChordVolume(this.settings.chordVolume);
+    this.synth.setVoiceVolume(this.settings.voiceVolume);
     this.syncDrone();
     this.synth.setDucked(false, this.synth.getCurrentTime());
 
@@ -391,6 +392,8 @@ export class SessionController {
       allowedChords: [...next.allowedChords],
     };
     this.announcer.setMode?.(next.voiceSource);
+    this.synth.setChordVolume(next.chordVolume);
+    this.synth.setVoiceVolume(next.voiceVolume);
 
     if (!this.isRunning) {
       this.activeKey = next.fixedKey;
@@ -451,8 +454,8 @@ export class SessionController {
       this.activeKey = pickRandomNextKey(this.activeKey, this.rng);
       this.questionsInCurrentKey = 0;
       this.previousQuestionEndVoicing = undefined;
-      if (this.settings.droneEnabled && this.settings.droneMode === 'match-key') {
-        this.drone.setPitch(this.activeKey);
+      if (this.settings.droneEnabled) {
+        this.drone.setPitch(this.resolveDronePitch(this.activeKey));
       }
     }
 
@@ -528,6 +531,7 @@ export class SessionController {
         rate: this.settings.speechRate,
         voiceURI: this.settings.speechVoiceURI,
         estimatedSyllables: 4,
+        volume: this.settings.voiceVolume,
         onEnd: () => {
           if (capturedEpoch !== this.epoch || !this.isRunning) return;
           this.pocket.recoverAudioSession();
@@ -641,6 +645,7 @@ export class SessionController {
         rate: effectiveRate,
         voiceURI: this.settings.speechVoiceURI,
         estimatedSyllables,
+        volume: this.settings.voiceVolume,
         onEnd: () => {
           if (capturedEpoch !== this.epoch || !this.isRunning) return;
           this.pocket.recoverAudioSession();

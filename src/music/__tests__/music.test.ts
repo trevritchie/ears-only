@@ -3,6 +3,7 @@ import {
   ALL_CHORD_IDS,
   CHORD_DEFS,
   getMajorScalePitchClasses,
+  getScaleDegreePitchClass,
   getSpokenChordPhrase,
   MAJOR_KEYS,
 } from '../chords';
@@ -70,6 +71,20 @@ describe('music theory & chord definitions', () => {
       text: 'Seven minor seven flat five',
       estimatedSyllables: 8,
     });
+  });
+
+  it('resolves scale degrees 1-7 relative to any active major key', () => {
+    // Key of C (0): 1=C(0), 3=E(4), 5=G(7), 7=B(11)
+    expect(getScaleDegreePitchClass(0, 1)).toBe(0);
+    expect(getScaleDegreePitchClass(0, 3)).toBe(4);
+    expect(getScaleDegreePitchClass(0, 5)).toBe(7);
+    expect(getScaleDegreePitchClass(0, 7)).toBe(11);
+
+    // Key of G (7): 1=G(7), 4=C(0), 5=D(2), 7=F#(6)
+    expect(getScaleDegreePitchClass(7, 1)).toBe(7);
+    expect(getScaleDegreePitchClass(7, 4)).toBe(0);
+    expect(getScaleDegreePitchClass(7, 5)).toBe(2);
+    expect(getScaleDegreePitchClass(7, 7)).toBe(6);
   });
 });
 
