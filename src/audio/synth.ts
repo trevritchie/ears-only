@@ -1,6 +1,7 @@
 import type { ScheduledNote } from '../music/arrangement';
 import { midiToFreq } from '../music/voicing';
 import type { AmbienceMode, TimbreId } from '../types/settings';
+import { ChoirSampleBank } from './choirSamples';
 import { buildInstrumentVoice } from './instruments';
 import {
   computeVoicePan,
@@ -28,6 +29,7 @@ export interface SynthEngine {
   setChordVolume(volume: number): void;
   setVoiceVolume(volume: number): void;
   setAmbience(mode: AmbienceMode): void;
+  preloadTimbre?(timbre: TimbreId): Promise<void>;
   onStateChange(cb: (state: string) => void): () => void;
   dispose(): void;
 }
@@ -52,6 +54,7 @@ export class PolySynth implements SynthEngine {
   private voiceBus: GainNode | null = null;
   private compressor: DynamicsCompressorNode | null = null;
   private sharedResources: VoiceSharedResources | null = null;
+  private choirBank = new ChoirSampleBank();
   private irCache = new Map<'warm-room' | 'lush-hall', AudioBuffer>();
   private graphNodes: AudioNode[] = [];
 
@@ -286,6 +289,13 @@ export class PolySynth implements SynthEngine {
     this.wetGain.gain.setTargetAtTime(cfg.wetGain, now, 0.05);
   }
 
+  async preloadTimbre(timbre: TimbreId): Promise<void> {
+    if (timbre !== 'satb-choir') return;
+    const ctx = this.initGraph();
+    if (!ctx) return;
+    await this.choirBank.preload(ctx);
+  }
+
   playChord(
     notes: readonly ScheduledNote[],
     startTime: number,
@@ -373,6 +383,7 @@ export class PolySynth implements SynthEngine {
       voiceIndex,
       envGain,
       shared,
+      choirBank: this.choirBank,
     });
 
     envGain.connect(releaseGain);
@@ -413,8 +424,9 @@ export class PolySynth implements SynthEngine {
       }
     };
 
-    if (built.oscs.length > 0) {
-      built.oscs[0].onended = cleanup;
+    const cleanupDriver = built.oscs[0] ?? built.bufferSources[0];
+    if (cleanupDriver) {
+      cleanupDriver.onended = cleanup;
     }
 
     for (const osc of built.oscs) {
@@ -483,6 +495,7 @@ export class PolySynth implements SynthEngine {
     }
     this.graphNodes = [];
     this.irCache.clear();
+    this.choirBank.clear();
     this.sharedResources = null;
     this.ctx = null;
     this.chordBus = null;

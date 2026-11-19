@@ -1,3 +1,4 @@
+import type { ChoirVowel } from '../choirSamples';
 import type {
   BuiltVoiceNodes,
   InstrumentPresetMeta,
@@ -7,38 +8,122 @@ import type {
 export const SATB_CHOIR_META: InstrumentPresetMeta = {
   id: 'satb-choir',
   label: 'SATB Choir',
-  subtitle: 'Vocal harmony',
-  defaultReleaseSec: 0.58,
+  subtitle: 'Ooh & Ahh voices',
+  defaultReleaseSec: 0.56,
   rollStepSec: 0.0,
 };
 
-interface SectionFormants {
-  f1: number;
-  f2: number;
-  f3: number;
-  g1: number;
-  g2: number;
-  g3: number;
+interface FormantBand {
+  freq: number;
+  q: number;
+  gain: number;
+}
+
+interface SectionVowelSpec {
+  bands: readonly FormantBand[];
   fundMix: number;
   detuneCents: number;
 }
 
-// Warm meditative "Ooh / Oh" vocal-tract formants tuned per choral section
-const SECTION_FORMANTS: readonly SectionFormants[] = [
-  // 0: Bass: deep, round warm "Oh/Ooh"
-  { f1: 360, f2: 760, f3: 2300, g1: 0.62, g2: 0.34, g3: 0.06, fundMix: 0.42, detuneCents: 1.6 },
-  // 1: Tenor: warm resonant "Oh"
-  { f1: 420, f2: 880, f3: 2500, g1: 0.6, g2: 0.36, g3: 0.07, fundMix: 0.36, detuneCents: 2.0 },
-  // 2: Alto: rich mellow "Ooh/Oh"
-  { f1: 465, f2: 960, f3: 2680, g1: 0.58, g2: 0.36, g3: 0.07, fundMix: 0.34, detuneCents: 2.0 },
-  // 3: Soprano: luminous soft "Ooh/Ah"
-  { f1: 520, f2: 1080, f3: 2850, g1: 0.56, g2: 0.38, g3: 0.08, fundMix: 0.32, detuneCents: 2.2 },
-];
+// Csound Appendix D singing formant tables for Bass, Tenor, Alto, Soprano
+// across 'ooh' (/u/) and 'ahh' (/a/) vowels (used as instant fallback before
+// recorded choir samples finish decoding or when offline).
+const FORMANT_TABLES: Record<ChoirVowel, readonly SectionVowelSpec[]> = {
+  ooh: [
+    // 0: Bass /u/
+    {
+      bands: [
+        { freq: 350, q: 5.5, gain: 1.0 },
+        { freq: 600, q: 6.5, gain: 0.28 },
+        { freq: 2400, q: 10.0, gain: 0.05 },
+      ],
+      fundMix: 0.44,
+      detuneCents: 1.6,
+    },
+    // 1: Tenor /u/
+    {
+      bands: [
+        { freq: 350, q: 5.5, gain: 1.0 },
+        { freq: 600, q: 6.8, gain: 0.25 },
+        { freq: 2700, q: 11.0, gain: 0.08 },
+      ],
+      fundMix: 0.4,
+      detuneCents: 2.0,
+    },
+    // 2: Alto /u/
+    {
+      bands: [
+        { freq: 325, q: 5.2, gain: 1.0 },
+        { freq: 700, q: 6.8, gain: 0.34 },
+        { freq: 2530, q: 10.0, gain: 0.06 },
+      ],
+      fundMix: 0.38,
+      detuneCents: 2.0,
+    },
+    // 3: Soprano /u/
+    {
+      bands: [
+        { freq: 325, q: 5.0, gain: 0.95 },
+        { freq: 700, q: 6.5, gain: 0.3 },
+        { freq: 2700, q: 10.0, gain: 0.05 },
+      ],
+      fundMix: 0.38,
+      detuneCents: 2.2,
+    },
+  ],
+  ahh: [
+    // 0: Bass /a/
+    {
+      bands: [
+        { freq: 600, q: 6.0, gain: 1.0 },
+        { freq: 1040, q: 7.5, gain: 0.5 },
+        { freq: 2250, q: 10.0, gain: 0.22 },
+      ],
+      fundMix: 0.36,
+      detuneCents: 1.6,
+    },
+    // 1: Tenor /a/
+    {
+      bands: [
+        { freq: 650, q: 5.8, gain: 1.0 },
+        { freq: 1080, q: 7.2, gain: 0.52 },
+        { freq: 2650, q: 10.5, gain: 0.24 },
+      ],
+      fundMix: 0.32,
+      detuneCents: 2.0,
+    },
+    // 2: Alto /a/
+    {
+      bands: [
+        { freq: 800, q: 5.8, gain: 1.0 },
+        { freq: 1150, q: 7.2, gain: 0.62 },
+        { freq: 2800, q: 10.5, gain: 0.14 },
+      ],
+      fundMix: 0.3,
+      detuneCents: 2.0,
+    },
+    // 3: Soprano /a/
+    {
+      bands: [
+        { freq: 800, q: 5.5, gain: 1.0 },
+        { freq: 1150, q: 7.0, gain: 0.54 },
+        { freq: 2900, q: 10.0, gain: 0.1 },
+      ],
+      fundMix: 0.3,
+      detuneCents: 2.2,
+    },
+  ],
+};
 
-function getSectionFormants(voiceIndex: number, isBass: boolean): SectionFormants {
-  if (isBass) return SECTION_FORMANTS[0];
+function getSectionSpec(
+  vowel: ChoirVowel,
+  voiceIndex: number,
+  isBass: boolean,
+): SectionVowelSpec {
+  const table = FORMANT_TABLES[vowel];
+  if (isBass) return table[0];
   const clamped = Math.max(1, Math.min(3, voiceIndex));
-  return SECTION_FORMANTS[clamped];
+  return table[clamped];
 }
 
 export function buildSatbChoirVoice({
@@ -51,21 +136,54 @@ export function buildSatbChoirVoice({
   voiceIndex,
   envGain,
   shared,
+  choirBank,
 }: VoiceBuildParams): BuiltVoiceNodes {
   const isBass = note.role === 'bass';
-  const section = getSectionFormants(voiceIndex, isBass);
+  const vowel: ChoirVowel = note.vowel ?? 'ooh';
+  const sample = choirBank?.getSample(vowel, note.midi) ?? null;
+
+  // Primary path: real recorded SATB choir multi-sample (FluidR3_GM Ooh/Ahh)
+  if (sample) {
+    const src = ctx.createBufferSource();
+    src.buffer = sample.buffer;
+    src.playbackRate.setValueAtTime(sample.playbackRate, now);
+    src.loop = true;
+    src.loopStart = Math.min(0.8, Math.max(0.2, sample.buffer.duration * 0.2));
+    src.loopEnd = Math.max(src.loopStart + 0.5, sample.buffer.duration - 0.35);
+
+    const polishFilter = ctx.createBiquadFilter();
+    polishFilter.type = 'lowpass';
+    polishFilter.frequency.setValueAtTime(isBass ? 2600 : 5200, now);
+    polishFilter.Q.value = 0.5;
+
+    src.connect(polishFilter);
+    polishFilter.connect(envGain);
+
+    // Mastered choir samples sit at ~-18.5 LUFS (-6 dB peak headroom); boost to
+    // match Velvet Pad and Felt Piano perceived chord loudness evenly.
+    const attackSec = 0.18;
+    envGain.gain.linearRampToValueAtTime(peakGain * 2.1, t0 + attackSec);
+
+    return {
+      oscs: [],
+      bufferSources: [src],
+      auxNodes: [polishFilter],
+      defaultReleaseSec: SATB_CHOIR_META.defaultReleaseSec,
+    };
+  }
+
+  // Fallback path: Csound Appendix D section-tuned formant synth ('ooh' or 'ahh')
+  const section = getSectionSpec(vowel, voiceIndex, isBass);
   const attackSec = 0.22;
 
   const oscs: OscillatorNode[] = [];
   const bufferSources: AudioBufferSourceNode[] = [];
   const auxNodes: AudioNode[] = [];
 
-  // Shared glottal source bus feeding the parallel vocal-tract formants
   const sourceBus = ctx.createGain();
   sourceBus.gain.value = 1.0;
   auxNodes.push(sourceBus);
 
-  // Two tightly detuned singers per section for serene ensemble blend without pitch warble
   for (const detune of [-section.detuneCents, section.detuneCents]) {
     const singerOsc = ctx.createOscillator();
     if (shared.choirPeriodicWave) {
@@ -85,28 +203,23 @@ export function buildSatbChoirVoice({
     auxNodes.push(singerGain);
   }
 
-  // Parallel 3-formant vocal-tract filter bank (F1, F2, F3)
-  const formantDefs: readonly [number, number, number][] = [
-    [section.f1, 3.6, section.g1],
-    [section.f2, 4.8, section.g2],
-    [section.f3, 6.2, section.g3],
-  ];
-
-  // Warm summing stage with gentle top-end polish
   const voiceOutFilter = ctx.createBiquadFilter();
   voiceOutFilter.type = 'lowpass';
-  voiceOutFilter.frequency.setValueAtTime(isBass ? 1800 : 3200, now);
+  voiceOutFilter.frequency.setValueAtTime(
+    vowel === 'ahh' ? (isBass ? 2400 : 3800) : isBass ? 1600 : 2800,
+    now,
+  );
   voiceOutFilter.Q.value = 0.55;
   auxNodes.push(voiceOutFilter);
 
-  for (const [fHz, qVal, level] of formantDefs) {
+  for (const band of section.bands) {
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass';
-    bp.frequency.setValueAtTime(fHz, now);
-    bp.Q.value = qVal;
+    bp.frequency.setValueAtTime(band.freq, now);
+    bp.Q.value = band.q;
 
     const fGain = ctx.createGain();
-    fGain.gain.value = level * 1.45;
+    fGain.gain.value = band.gain * 1.4;
 
     sourceBus.connect(bp);
     bp.connect(fGain);
@@ -114,7 +227,6 @@ export function buildSatbChoirVoice({
     auxNodes.push(bp, fGain);
   }
 
-  // Warm fundamental anchor so pitch center is unmistakably clear in all keys
   const fundOsc = ctx.createOscillator();
   fundOsc.type = 'sine';
   fundOsc.frequency.setValueAtTime(freq, t0);
@@ -125,12 +237,11 @@ export function buildSatbChoirVoice({
   oscs.push(fundOsc);
   auxNodes.push(fundGain);
 
-  // Whisper-soft vocal breath onset (subtle air bloom)
   const breathSrc = ctx.createBufferSource();
   breathSrc.buffer = shared.noiseBurstBuffer;
   const breathFilter = ctx.createBiquadFilter();
   breathFilter.type = 'bandpass';
-  breathFilter.frequency.setValueAtTime(section.f2 * 1.35, now);
+  breathFilter.frequency.setValueAtTime(section.bands[1].freq * 1.3, now);
   breathFilter.Q.value = 2.0;
   const breathGain = ctx.createGain();
   breathGain.gain.setValueAtTime(0, now);

@@ -84,7 +84,7 @@ describe('Ears Only App UI', () => {
       screen.getByRole('button', { name: /soft vibes/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /satb choir.*vocal harmony/i }),
+      screen.getByRole('button', { name: /satb choir.*ooh & ahh voices/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /electric piano/i }),

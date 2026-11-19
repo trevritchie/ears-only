@@ -1,3 +1,4 @@
+import type { ChoirVowel } from '../audio/choirSamples';
 import type { VoicedChord } from './voicing';
 
 export type NoteRole = 'bass' | 'harmony' | 'melody';
@@ -11,6 +12,8 @@ export interface ScheduledNote {
   role: NoteRole;
   /** Optional explicit stereo pan [-1, 1]; falls back to default gentle spread when omitted. */
   pan?: number;
+  /** Optional choir vowel articulation ('ooh' or 'ahh'), used by SATB Choir. */
+  vowel?: ChoirVowel;
 }
 
 export interface ArrangementStrategy {

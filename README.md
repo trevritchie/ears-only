@@ -21,3 +21,7 @@ npm run build    # Type-check and build production bundle
 ```
 
 See [ROADMAP.md](./ROADMAP.md) for post-v1 plans (variable rhythms, inversions, drum grooves, top-line melodies, and pre-rendered voice clips).
+
+## Credits
+
+- SATB Choir "Ooh" and "Ahh" multi-samples derived from FluidR3_GM (`voice_oohs` and `choir_aahs`, Frank Wen / midi-js-soundfonts, CC-BY 3.0).

@@ -13,6 +13,12 @@ import {
   sanitizeSettings,
   saveSettings,
 } from '../../types/settings';
+import {
+  CHOIR_ANCHOR_MIDIS,
+  ChoirSampleBank,
+  findNearestChoirAnchor,
+  getChoirSampleUrl,
+} from '../choirSamples';
 import { formatDroneNoteName, pitchClassToDroneMidi } from '../drone';
 import { INSTRUMENT_PRESETS } from '../instruments';
 import { computeVoicePan } from '../instruments/types';
@@ -341,6 +347,36 @@ describe('meditative instruments & ambience', () => {
       expect(preset.defaultReleaseSec).toBeGreaterThan(0);
       expect(preset.rollStepSec).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it('maps any chord MIDI note in E2..G5 to the nearest choir anchor within +/-2 semitones and decodes Ooh/Ahh samples', async () => {
+    expect(CHOIR_ANCHOR_MIDIS).toHaveLength(10);
+    for (let midi = 40; midi <= 76; midi++) {
+      const { anchorMidi, playbackRate } = findNearestChoirAnchor(midi);
+      expect(Math.abs(midi - anchorMidi)).toBeLessThanOrEqual(2);
+      expect(playbackRate).toBeCloseTo(Math.pow(2, (midi - anchorMidi) / 12), 6);
+    }
+    expect(getChoirSampleUrl('ooh', 60)).toMatch(/choir\/ooh-60\.mp3\?v=\d+$/);
+    expect(getChoirSampleUrl('ahh', 40)).toMatch(/choir\/ahh-40\.mp3\?v=\d+$/);
+
+    const fakeBuf = { duration: 4.22 } as AudioBuffer;
+    const fakeCtx = {
+      decodeAudioData: vi.fn().mockResolvedValue(fakeBuf),
+    } as unknown as AudioContext;
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(16),
+    }) as unknown as typeof fetch;
+
+    const bank = new ChoirSampleBank(fetcher);
+    await bank.preload(fakeCtx);
+    expect(bank.isLoaded()).toBe(true);
+    expect(fetcher).toHaveBeenCalledTimes(20);
+
+    const sample = bank.getSample('ahh', 62); // D4 -> nearest anchor C4 (60) or E4 (64), +2/-2 semitones
+    expect(sample).not.toBeNull();
+    expect(sample!.buffer).toBe(fakeBuf);
+    expect(Math.abs(Math.log2(sample!.playbackRate) * 12)).toBeLessThanOrEqual(2.001);
   });
 
   it('centers bass pan and spreads upper voices symmetrically inside [-0.3, 0.3]', () => {

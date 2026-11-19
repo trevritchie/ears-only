@@ -1,5 +1,6 @@
 import type { NoteRole, ScheduledNote } from '../../music/arrangement';
 import type { TimbreId } from '../../types/settings';
+import type { ChoirSampleBank } from '../choirSamples';
 
 export interface InstrumentPresetMeta {
   id: TimbreId;
@@ -26,6 +27,7 @@ export interface VoiceBuildParams {
   voiceIndex: number;
   envGain: GainNode;
   shared: VoiceSharedResources;
+  choirBank?: ChoirSampleBank;
 }
 
 export interface BuiltVoiceNodes {

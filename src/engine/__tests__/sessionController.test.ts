@@ -741,4 +741,33 @@ describe('SessionController state machine & scheduler', () => {
       [...chord0Pans.slice(1)].sort((a, b) => a - b),
     );
   });
+
+  it('randomly assigns ooh and ahh vowels per chord for SATB Choir', () => {
+    const run = createHarness(
+      {
+        allowedChords: ['I', 'IV', 'V', 'vi'],
+        bpm: 240, // 1.0s per chord
+        progressionLength: 4,
+        questionRepeats: 1,
+        keyOrientation: 'none',
+        timbre: 'satb-choir',
+      },
+      // Alternating <0.5 and >=0.5 so progression vowels mix ooh and ahh
+      [0.1, 0.8, 0.2, 0.9, 0.15, 0.85, 0.25, 0.75, 0.1, 0.9, 0.2, 0.8],
+    );
+
+    run.controller.start();
+    advanceAndTick(run.synth, run.clock, 3.6);
+    expect(run.synth.chords.length).toBeGreaterThanOrEqual(4);
+
+    const chordVowels = run.synth.chords.slice(0, 4).map((c) => {
+      const v = c.notes[0].vowel;
+      // All 4 voices within a single chord sing the same vowel
+      expect(c.notes.every((n) => n.vowel === v)).toBe(true);
+      expect(v === 'ooh' || v === 'ahh').toBe(true);
+      return v;
+    });
+    // Mix of both vowels across the progression
+    expect(new Set(chordVowels).size).toBe(2);
+  });
 });
