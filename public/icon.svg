@@ -1,12 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
   <rect width="256" height="256" rx="56" fill="#121417" />
   <rect x="12" y="12" width="232" height="232" rx="46" stroke="#2B323B" stroke-width="4" />
-  <ellipse cx="66" cy="116" rx="16" ry="22" transform="rotate(-22 66 116)" fill="#E5A93C" />
-  <ellipse cx="104" cy="82" rx="17" ry="24" transform="rotate(-8 104 82)" fill="#E5A93C" />
-  <ellipse cx="152" cy="82" rx="17" ry="24" transform="rotate(8 152 82)" fill="#E5A93C" />
-  <ellipse cx="190" cy="116" rx="16" ry="22" transform="rotate(22 190 116)" fill="#E5A93C" />
-  <path
-    d="M128 122 C102 122 82 146 82 170 C82 188 96 198 112 195 C119 193 123 190 128 190 C133 190 137 193 144 195 C160 198 174 188 174 170 C174 146 154 122 128 122 Z"
-    fill="#4FB3A4"
-  />
+  <g transform="translate(36, 36) scale(7.667)" stroke-linecap="round" stroke-linejoin="round">
+    <path
+      d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"
+      stroke="#E5A93C"
+      stroke-width="2.2"
+    />
+    <path
+      d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"
+      stroke="#4FB3A4"
+      stroke-width="2.1"
+    />
+  </g>
 </svg>

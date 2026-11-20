@@ -39,30 +39,29 @@ export function createArtworkDataUrl(): string | null {
     ctx.lineWidth = 4;
     ctx.strokeRect(12, 12, 232, 232);
 
-    const toes: readonly [number, number, number, number, number][] = [
-      [66, 116, 16, 22, (-22 * Math.PI) / 180],
-      [104, 82, 17, 24, (-8 * Math.PI) / 180],
-      [152, 82, 17, 24, (8 * Math.PI) / 180],
-      [190, 116, 16, 22, (22 * Math.PI) / 180],
-    ];
-    ctx.fillStyle = '#E5A93C';
-    for (const [x, y, rx, ry, rot] of toes) {
-      ctx.beginPath();
-      ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.fillStyle = '#4FB3A4';
     if (typeof Path2D !== 'undefined') {
-      ctx.fill(
-        new Path2D(
-          'M128 122 C102 122 82 146 82 170 C82 188 96 198 112 195 C119 193 123 190 128 190 C133 190 137 193 144 195 C160 198 174 188 174 170 C174 146 154 122 128 122 Z',
-        ),
+      ctx.save();
+      ctx.translate(36, 36);
+      ctx.scale(7.667, 7.667);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.strokeStyle = '#E5A93C';
+      ctx.lineWidth = 2.2;
+      ctx.stroke(
+        new Path2D('M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0'),
       );
+
+      ctx.strokeStyle = '#4FB3A4';
+      ctx.lineWidth = 2.1;
+      ctx.stroke(new Path2D('M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4'));
+      ctx.restore();
     } else {
+      ctx.strokeStyle = '#E5A93C';
+      ctx.lineWidth = 14;
       ctx.beginPath();
-      ctx.arc(128, 160, 40, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(128, 118, 52, Math.PI * 0.9, Math.PI * 2.2);
+      ctx.stroke();
     }
 
     return canvas.toDataURL('image/png');
