@@ -516,9 +516,9 @@ const INVERSION_NAME_SPOKEN: Record<
 
 const BASS_TONE_SPOKEN: Record<1 | 2 | 3, { text: string; syllables: number }> =
   {
-    1: { text: 'with the third in the bass', syllables: 6 },
-    2: { text: 'with the fifth in the bass', syllables: 6 },
-    3: { text: 'with the seventh in the bass', syllables: 7 },
+    1: { text: 'third in bass', syllables: 3 },
+    2: { text: 'fifth in bass', syllables: 3 },
+    3: { text: 'seventh in bass', syllables: 4 },
   };
 
 export function getInversionSuffixPhrases(

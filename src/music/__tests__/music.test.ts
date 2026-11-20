@@ -276,10 +276,10 @@ describe('music theory & chord definitions', () => {
     });
     expect(
       getSpokenChordPhrase('I', 'half-diminished', false, 1, 'bass-tone').text,
-    ).toBe('One with the third in the bass');
+    ).toBe('One third in bass');
     expect(
       getSpokenChordPhrase('V7', 'half-diminished', false, 3, 'bass-tone').text,
-    ).toBe('Five seven with the seventh in the bass');
+    ).toBe('Five seven seventh in bass');
   });
 });
 

@@ -45,9 +45,9 @@ const PHRASE_TO_FILENAME: Record<string, string> = {
   'first inversion': 'inv-1.mp3',
   'second inversion': 'inv-2.mp3',
   'third inversion': 'inv-3.mp3',
-  'with the third in the bass': 'bass-3.mp3',
-  'with the fifth in the bass': 'bass-5.mp3',
-  'with the seventh in the bass': 'bass-7.mp3',
+  'third in bass': 'bass-3.mp3',
+  'fifth in bass': 'bass-5.mp3',
+  'seventh in bass': 'bass-7.mp3',
 };
 
 export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
@@ -97,18 +97,18 @@ export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
   'first inversion',
   'second inversion',
   'third inversion',
-  'with the third in the bass',
-  'with the fifth in the bass',
-  'with the seventh in the bass',
+  'third in bass',
+  'fifth in bass',
+  'seventh in bass',
 ];
 
 const INVERSION_SUFFIX_KEYS: readonly string[] = [
   'first inversion',
   'second inversion',
   'third inversion',
-  'with the third in the bass',
-  'with the fifth in the bass',
-  'with the seventh in the bass',
+  'third in bass',
+  'fifth in bass',
+  'seventh in bass',
 ];
 
 export function getVoiceClipFilename(text: string): string | null {
@@ -116,7 +116,7 @@ export function getVoiceClipFilename(text: string): string | null {
   return PHRASE_TO_FILENAME[key] ?? null;
 }
 
-export const VOICE_CLIPS_VERSION = '8';
+export const VOICE_CLIPS_VERSION = '9';
 
 export function getVoiceClipUrl(text: string): string | null {
   const filename = getVoiceClipFilename(text);

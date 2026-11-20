@@ -85,9 +85,9 @@ describe('voiceClips mapping', () => {
       getVoiceClipUrl('Five seven'),
       getVoiceClipUrl('third inversion'),
     ]);
-    expect(getVoiceClipUrlsForPhrase('One with the third in the bass')).toEqual([
+    expect(getVoiceClipUrlsForPhrase('One third in bass')).toEqual([
       getVoiceClipUrl('One'),
-      getVoiceClipUrl('with the third in the bass'),
+      getVoiceClipUrl('third in bass'),
     ]);
   });
 });
@@ -383,10 +383,10 @@ describe('AudioBufferAnnouncer', () => {
 
     // Cancel clears chained sources
     const onEndCancelled = vi.fn();
-    await announcer.trySpeak('One with the third in the bass', {
+    await announcer.trySpeak('One third in bass', {
       rate: 1.0,
       voiceURI: null,
-      estimatedSyllables: 7,
+      estimatedSyllables: 4,
       onEnd: onEndCancelled,
     });
     announcer.cancel();

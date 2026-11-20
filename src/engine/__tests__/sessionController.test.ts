@@ -971,7 +971,7 @@ describe('SessionController state machine & scheduler', () => {
     announcer.finishLatest();
     advanceAndTick(synth, clock, 1.1);
     expect(announcer.spoken[1].text).toMatch(
-      /^(Five seven with the seventh in the bass|One with the third in the bass)$/,
+      /^(Five seven seventh in bass|One third in bass)$/,
     );
   });
 });
