@@ -22,6 +22,18 @@ npm run build    # Type-check and build production bundle
 
 See [ROADMAP.md](./ROADMAP.md) for post-v1 plans (variable rhythms, inversions, drum grooves, top-line melodies, and pre-rendered voice clips).
 
+## Audio Assets & Mastering
+
+Spoken announcements (`public/voice/`), SATB choir multi-samples (`public/choir/`), and acoustic instrument multi-samples (`public/samples/`) are built and verified with reproducible scripts documented in [docs/AUDIO_PIPELINE.md](./docs/AUDIO_PIPELINE.md):
+
+```bash
+python3 scripts/generate_voice_clips.py --verify   # Verify all 49 TTS voice MP3s
+python3 scripts/process_samples.py --verify        # Verify all 123 choir + instrument MP3s
+
+# Regenerate or add voice clips via Microsoft Edge AvaNeural TTS + broadcast mastering
+uvx --from edge-tts python scripts/generate_voice_clips.py --only bass-3 bass-5 bass-7
+```
+
 ## Credits
 
 - **Grand Piano** samples derived from Salamander Grand Piano V3 (Alexander Holm, CC-BY 3.0).
