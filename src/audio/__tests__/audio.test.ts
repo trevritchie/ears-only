@@ -4,10 +4,12 @@ import { PocketManager } from '../../engine/pocketManager';
 import {
   MAJOR_KEYS,
   ALL_CHORD_IDS,
+  getMaxInversionForChord,
   getSpokenChordPhrase,
   getSpokenKeyPhrase,
 } from '../../music/chords';
 import {
+  type InversionNotation,
   LEGACY_SETTINGS_STORAGE_KEY,
   loadSettings,
   sanitizeSettings,
@@ -49,7 +51,7 @@ import {
 
 describe('voiceClips mapping', () => {
   it('maps every key, chord, and inversion spoken phrase to an mp3 URL', () => {
-    expect(ALL_VOICE_CLIP_TEXTS).toHaveLength(49);
+    expect(ALL_VOICE_CLIP_TEXTS).toHaveLength(73);
     for (const phrase of ALL_VOICE_CLIP_TEXTS) {
       const url = getVoiceClipUrl(phrase);
       expect(url).toMatch(/voice\/.*\.mp3(\?v=\d+)?$/);
@@ -76,7 +78,7 @@ describe('voiceClips mapping', () => {
       }
     }
 
-    // 2-clip resolution for inverted chords
+    // 2-clip resolution for inverted chords across all styles
     expect(getVoiceClipUrlsForPhrase('One first inversion')).toEqual([
       getVoiceClipUrl('One'),
       getVoiceClipUrl('first inversion'),
@@ -89,6 +91,58 @@ describe('voiceClips mapping', () => {
       getVoiceClipUrl('One'),
       getVoiceClipUrl('third in bass'),
     ]);
+    expect(getVoiceClipUrlsForPhrase('Five over degree seven')).toEqual([
+      getVoiceClipUrl('Five'),
+      getVoiceClipUrl('over degree seven'),
+    ]);
+    expect(getVoiceClipUrlsForPhrase('Five of five over degree sharp four')).toEqual([
+      getVoiceClipUrl('Five of five'),
+      getVoiceClipUrl('over degree sharp four'),
+    ]);
+    expect(
+      getVoiceClipUrlsForPhrase('Five seven of four over degree flat seven'),
+    ).toEqual([
+      getVoiceClipUrl('Five seven of four'),
+      getVoiceClipUrl('over degree flat seven'),
+    ]);
+    expect(getVoiceClipUrlsForPhrase('Five over ti')).toEqual([
+      getVoiceClipUrl('Five'),
+      getVoiceClipUrl('over ti'),
+    ]);
+    expect(getVoiceClipUrlsForPhrase('Five of five over fi')).toEqual([
+      getVoiceClipUrl('Five of five'),
+      getVoiceClipUrl('over fi'),
+    ]);
+    expect(getVoiceClipUrlsForPhrase('Five seven of four over te')).toEqual([
+      getVoiceClipUrl('Five seven of four'),
+      getVoiceClipUrl('over te'),
+    ]);
+
+    // Exhaustive check: every chord x valid inversion x notation style resolves
+    const notations: readonly InversionNotation[] = [
+      'inversion-name',
+      'figured-bass',
+      'bass-tone',
+      'scale-degree',
+      'solfege',
+    ];
+    for (const id of ALL_CHORD_IDS) {
+      const maxInv = getMaxInversionForChord(id);
+      for (let inv = 0 as 0 | 1 | 2 | 3; inv <= maxInv; inv++) {
+        for (const notation of notations) {
+          const phrase = getSpokenChordPhrase(
+            id,
+            'half-diminished',
+            false,
+            inv,
+            notation,
+          );
+          const urls = getVoiceClipUrlsForPhrase(phrase.text);
+          expect(urls).not.toBeNull();
+          expect(urls).toHaveLength(inv === 0 ? 1 : 2);
+        }
+      }
+    }
   });
 });
 
@@ -646,6 +700,12 @@ describe('meditative instruments & ambience', () => {
       V7: [0, 3],
     });
     expect(customInv.inversionNotation).toBe('bass-tone');
+    expect(sanitizeSettings({ inversionNotation: 'scale-degree' }).inversionNotation).toBe(
+      'scale-degree',
+    );
+    expect(sanitizeSettings({ inversionNotation: 'solfege' }).inversionNotation).toBe(
+      'solfege',
+    );
     expect(customInv.musicalInversionLeading).toBe(false);
   });
 

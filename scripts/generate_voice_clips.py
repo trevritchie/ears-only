@@ -95,6 +95,32 @@ VOICE_CLIPS: list[tuple[str, str]] = [
     ("bass-3", "third in bass."),
     ("bass-5", "fifth in bass."),
     ("bass-7", "seventh in bass."),
+    # Scale-degree bass suffixes (12 chromatic degrees in key)
+    ("deg-0", "over degree one."),
+    ("deg-1", "over degree sharp one."),
+    ("deg-2", "over degree two."),
+    ("deg-3", "over degree sharp two."),
+    ("deg-4", "over degree three."),
+    ("deg-5", "over degree four."),
+    ("deg-6", "over degree sharp four."),
+    ("deg-7", "over degree five."),
+    ("deg-8", "over degree sharp five."),
+    ("deg-9", "over degree six."),
+    ("deg-10", "over degree flat seven."),
+    ("deg-11", "over degree seven."),
+    # Solfege bass suffixes using phonetic spellings for accurate AvaNeural pronunciation (12)
+    ("solf-0", "over dough."),
+    ("solf-1", "over dee."),
+    ("solf-2", "over ray."),
+    ("solf-3", "over ree."),
+    ("solf-4", "over me."),
+    ("solf-5", "over fah."),
+    ("solf-6", "over fee."),
+    ("solf-7", "over soul."),
+    ("solf-8", "over see."),
+    ("solf-9", "over lah."),
+    ("solf-10", "over tay."),
+    ("solf-11", "over tea."),
 ]
 
 
@@ -347,7 +373,11 @@ def parse_args() -> argparse.Namespace:
         description="Generate and master Paws Off TTS voice clips.",
     )
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--list", action="store_true", help="List all 49 catalog slugs and texts.")
+    mode.add_argument(
+        "--list",
+        action="store_true",
+        help=f"List all {len(VOICE_CLIPS)} catalog slugs and texts.",
+    )
     mode.add_argument(
         "--verify",
         action="store_true",
@@ -368,7 +398,7 @@ def parse_args() -> argparse.Namespace:
     mode.add_argument(
         "--all",
         action="store_true",
-        help="Regenerate and master all 49 catalog clips.",
+        help=f"Regenerate and master all {len(VOICE_CLIPS)} catalog clips.",
     )
     parser.add_argument(
         "--out-dir",

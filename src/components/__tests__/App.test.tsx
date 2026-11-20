@@ -478,4 +478,41 @@ describe('Paws Off App UI', () => {
     );
     expect(afterResetAll.chordInversionOverrides).toEqual({});
   });
+
+  it('supports Scale degree and Solfege inversion display and voice styles with live preview and persistence', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /inversions/i }));
+    await user.click(screen.getByRole('button', { name: 'Scale degree' }));
+    expect(
+      screen.getByRole('button', { name: 'Scale degree' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.getByText(
+        /Example: I \(over 3\) \(One over degree three\) · V7 \(over 4\) \(Five seven over degree four\)/i,
+      ),
+    ).toBeInTheDocument();
+
+    const afterScaleDegree = JSON.parse(
+      window.localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}',
+    );
+    expect(afterScaleDegree.inversionNotation).toBe('scale-degree');
+
+    await user.click(screen.getByRole('button', { name: 'Solfège' }));
+    expect(screen.getByRole('button', { name: 'Solfège' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(
+      screen.getByText(
+        /Example: I \(over Mi\) \(One over mi\) · V7 \(over Fa\) \(Five seven over fa\)/i,
+      ),
+    ).toBeInTheDocument();
+
+    const afterSolfege = JSON.parse(
+      window.localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}',
+    );
+    expect(afterSolfege.inversionNotation).toBe('solfege');
+  });
 });

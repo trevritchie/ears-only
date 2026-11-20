@@ -415,16 +415,131 @@ export function getAllowedInversionsForChord(
   return filtered.length > 0 ? filtered : [0];
 }
 
+export function getChordBassOffset(
+  chordId: ChordId,
+  inversion: ChordInversion,
+): PitchClass {
+  const def = CHORD_DEFS[chordId];
+  const safeInv = Math.min(inversion, def.intervals.length - 1);
+  return ((def.rootOffset + (def.intervals[safeInv] ?? 0)) % 12) as PitchClass;
+}
+
 export function getChordBassPitchClass(
   chordId: ChordId,
   inversion: ChordInversion,
   key: PitchClass,
 ): PitchClass {
-  const def = CHORD_DEFS[chordId];
-  const safeInv = Math.min(inversion, def.intervals.length - 1);
-  return ((key + def.rootOffset + (def.intervals[safeInv] ?? 0)) %
-    12) as PitchClass;
+  return ((key + getChordBassOffset(chordId, inversion)) % 12) as PitchClass;
 }
+
+const BASS_SCALE_INFO: Record<
+  PitchClass,
+  {
+    degreeDisplay: string;
+    degreeSpoken: string;
+    degreeSyllables: number;
+    solfegeDisplay: string;
+    solfegeSpoken: string;
+    solfegeSyllables: number;
+  }
+> = {
+  0: {
+    degreeDisplay: '1',
+    degreeSpoken: 'over degree one',
+    degreeSyllables: 5,
+    solfegeDisplay: 'Do',
+    solfegeSpoken: 'over do',
+    solfegeSyllables: 3,
+  },
+  1: {
+    degreeDisplay: '♯1',
+    degreeSpoken: 'over degree sharp one',
+    degreeSyllables: 6,
+    solfegeDisplay: 'Di',
+    solfegeSpoken: 'over di',
+    solfegeSyllables: 3,
+  },
+  2: {
+    degreeDisplay: '2',
+    degreeSpoken: 'over degree two',
+    degreeSyllables: 5,
+    solfegeDisplay: 'Re',
+    solfegeSpoken: 'over re',
+    solfegeSyllables: 3,
+  },
+  3: {
+    degreeDisplay: '♯2',
+    degreeSpoken: 'over degree sharp two',
+    degreeSyllables: 6,
+    solfegeDisplay: 'Ri',
+    solfegeSpoken: 'over ri',
+    solfegeSyllables: 3,
+  },
+  4: {
+    degreeDisplay: '3',
+    degreeSpoken: 'over degree three',
+    degreeSyllables: 5,
+    solfegeDisplay: 'Mi',
+    solfegeSpoken: 'over mi',
+    solfegeSyllables: 3,
+  },
+  5: {
+    degreeDisplay: '4',
+    degreeSpoken: 'over degree four',
+    degreeSyllables: 5,
+    solfegeDisplay: 'Fa',
+    solfegeSpoken: 'over fa',
+    solfegeSyllables: 3,
+  },
+  6: {
+    degreeDisplay: '♯4',
+    degreeSpoken: 'over degree sharp four',
+    degreeSyllables: 6,
+    solfegeDisplay: 'Fi',
+    solfegeSpoken: 'over fi',
+    solfegeSyllables: 3,
+  },
+  7: {
+    degreeDisplay: '5',
+    degreeSpoken: 'over degree five',
+    degreeSyllables: 5,
+    solfegeDisplay: 'Sol',
+    solfegeSpoken: 'over sol',
+    solfegeSyllables: 3,
+  },
+  8: {
+    degreeDisplay: '♯5',
+    degreeSpoken: 'over degree sharp five',
+    degreeSyllables: 6,
+    solfegeDisplay: 'Si',
+    solfegeSpoken: 'over si',
+    solfegeSyllables: 3,
+  },
+  9: {
+    degreeDisplay: '6',
+    degreeSpoken: 'over degree six',
+    degreeSyllables: 5,
+    solfegeDisplay: 'La',
+    solfegeSpoken: 'over la',
+    solfegeSyllables: 3,
+  },
+  10: {
+    degreeDisplay: '♭7',
+    degreeSpoken: 'over degree flat seven',
+    degreeSyllables: 7,
+    solfegeDisplay: 'Te',
+    solfegeSpoken: 'over te',
+    solfegeSyllables: 3,
+  },
+  11: {
+    degreeDisplay: '7',
+    degreeSpoken: 'over degree seven',
+    degreeSyllables: 6,
+    solfegeDisplay: 'Ti',
+    solfegeSpoken: 'over ti',
+    solfegeSyllables: 3,
+  },
+};
 
 const INVERSION_NAME_SHORT: Record<1 | 2 | 3, string> = {
   1: '1st',
@@ -487,6 +602,26 @@ export function formatChordDisplay(
     };
   }
 
+  if (notation === 'scale-degree') {
+    const info = BASS_SCALE_INFO[getChordBassOffset(chordId, inv)];
+    const label = `over ${info.degreeDisplay}`;
+    return {
+      primary: def.symbol,
+      secondary: label,
+      inline: `${def.symbol} (${label})`,
+    };
+  }
+
+  if (notation === 'solfege') {
+    const info = BASS_SCALE_INFO[getChordBassOffset(chordId, inv)];
+    const label = `over ${info.solfegeDisplay}`;
+    return {
+      primary: def.symbol,
+      secondary: label,
+      inline: `${def.symbol} (${label})`,
+    };
+  }
+
   // Figured bass notation
   const fig = isSeventh
     ? SEVENTH_FIGURES[inv as 1 | 2 | 3]
@@ -521,6 +656,10 @@ const BASS_TONE_SPOKEN: Record<1 | 2 | 3, { text: string; syllables: number }> =
     3: { text: 'seventh in bass', syllables: 4 },
   };
 
+const CHROMATIC_PITCH_CLASSES: readonly PitchClass[] = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+];
+
 export function getInversionSuffixPhrases(
   notation: InversionNotation,
 ): readonly string[] {
@@ -530,6 +669,16 @@ export function getInversionSuffixPhrases(
       BASS_TONE_SPOKEN[2].text,
       BASS_TONE_SPOKEN[3].text,
     ];
+  }
+  if (notation === 'scale-degree') {
+    return CHROMATIC_PITCH_CLASSES.map(
+      (pc) => BASS_SCALE_INFO[pc].degreeSpoken,
+    );
+  }
+  if (notation === 'solfege') {
+    return CHROMATIC_PITCH_CLASSES.map(
+      (pc) => BASS_SCALE_INFO[pc].solfegeSpoken,
+    );
   }
   return [
     INVERSION_NAME_SPOKEN[1].text,
@@ -571,14 +720,30 @@ export function getSpokenChordPhrase(
     };
   }
 
-  const suffix =
-    inversionNotation === 'bass-tone'
-      ? BASS_TONE_SPOKEN[inv as 1 | 2 | 3]
-      : INVERSION_NAME_SPOKEN[inv as 1 | 2 | 3];
+  let suffixText: string;
+  let suffixSyllables: number;
+
+  if (inversionNotation === 'bass-tone') {
+    const entry = BASS_TONE_SPOKEN[inv as 1 | 2 | 3];
+    suffixText = entry.text;
+    suffixSyllables = entry.syllables;
+  } else if (inversionNotation === 'scale-degree') {
+    const info = BASS_SCALE_INFO[getChordBassOffset(chordId, inv)];
+    suffixText = info.degreeSpoken;
+    suffixSyllables = info.degreeSyllables;
+  } else if (inversionNotation === 'solfege') {
+    const info = BASS_SCALE_INFO[getChordBassOffset(chordId, inv)];
+    suffixText = info.solfegeSpoken;
+    suffixSyllables = info.solfegeSyllables;
+  } else {
+    const entry = INVERSION_NAME_SPOKEN[inv as 1 | 2 | 3];
+    suffixText = entry.text;
+    suffixSyllables = entry.syllables;
+  }
 
   return {
-    text: `${baseText} ${suffix.text}`,
-    estimatedSyllables: baseSyllables + suffix.syllables,
+    text: `${baseText} ${suffixText}`,
+    estimatedSyllables: baseSyllables + suffixSyllables,
   };
 }
 

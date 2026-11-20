@@ -1124,15 +1124,37 @@ export function ChordSelector({
                 Display &amp; voice style
               </p>
               <div
-                className="grid grid-cols-3 gap-1.5"
+                className="grid grid-cols-6 gap-1.5"
                 role="group"
                 aria-label="Inversion display and voice style"
               >
                 {(
                   [
-                    { id: 'inversion-name', label: 'Inversion' },
-                    { id: 'figured-bass', label: 'Figured bass' },
-                    { id: 'bass-tone', label: 'Bass tone' },
+                    {
+                      id: 'inversion-name',
+                      label: 'Inversion',
+                      span: 'col-span-2',
+                    },
+                    {
+                      id: 'figured-bass',
+                      label: 'Figured bass',
+                      span: 'col-span-2',
+                    },
+                    {
+                      id: 'bass-tone',
+                      label: 'Bass tone',
+                      span: 'col-span-2',
+                    },
+                    {
+                      id: 'scale-degree',
+                      label: 'Scale degree',
+                      span: 'col-span-3',
+                    },
+                    {
+                      id: 'solfege',
+                      label: 'Solfège',
+                      span: 'col-span-3',
+                    },
                   ] as const
                 ).map((mode) => {
                   const active = inversionNotation === mode.id;
@@ -1142,7 +1164,7 @@ export function ChordSelector({
                       type="button"
                       aria-pressed={active}
                       onClick={() => onChangeInversionNotation(mode.id)}
-                      className={`min-h-[38px] rounded-xl border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
+                      className={`${mode.span} min-h-[38px] rounded-xl border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4] ${
                         active
                           ? 'border-[#4FB3A4] bg-[#4FB3A4]/20 text-[#4FB3A4]'
                           : 'border-[#343C47] bg-[#252B33] text-[#9CA3AE] hover:text-[#F3EFE6]'

@@ -27,7 +27,7 @@ See [ROADMAP.md](./ROADMAP.md) for post-v1 plans (variable rhythms, inversions, 
 Spoken announcements (`public/voice/`), SATB choir multi-samples (`public/choir/`), and acoustic instrument multi-samples (`public/samples/`) are built and verified with reproducible scripts documented in [docs/AUDIO_PIPELINE.md](./docs/AUDIO_PIPELINE.md):
 
 ```bash
-python3 scripts/generate_voice_clips.py --verify   # Verify all 49 TTS voice MP3s
+python3 scripts/generate_voice_clips.py --verify   # Verify all 73 TTS voice MP3s
 python3 scripts/process_samples.py --verify        # Verify all 123 choir + instrument MP3s
 
 # Regenerate or add voice clips via Microsoft Edge AvaNeural TTS + broadcast mastering

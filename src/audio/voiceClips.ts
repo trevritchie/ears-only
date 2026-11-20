@@ -48,6 +48,30 @@ const PHRASE_TO_FILENAME: Record<string, string> = {
   'third in bass': 'bass-3.mp3',
   'fifth in bass': 'bass-5.mp3',
   'seventh in bass': 'bass-7.mp3',
+  'over degree one': 'deg-0.mp3',
+  'over degree sharp one': 'deg-1.mp3',
+  'over degree two': 'deg-2.mp3',
+  'over degree sharp two': 'deg-3.mp3',
+  'over degree three': 'deg-4.mp3',
+  'over degree four': 'deg-5.mp3',
+  'over degree sharp four': 'deg-6.mp3',
+  'over degree five': 'deg-7.mp3',
+  'over degree sharp five': 'deg-8.mp3',
+  'over degree six': 'deg-9.mp3',
+  'over degree flat seven': 'deg-10.mp3',
+  'over degree seven': 'deg-11.mp3',
+  'over do': 'solf-0.mp3',
+  'over di': 'solf-1.mp3',
+  'over re': 'solf-2.mp3',
+  'over ri': 'solf-3.mp3',
+  'over mi': 'solf-4.mp3',
+  'over fa': 'solf-5.mp3',
+  'over fi': 'solf-6.mp3',
+  'over sol': 'solf-7.mp3',
+  'over si': 'solf-8.mp3',
+  'over la': 'solf-9.mp3',
+  'over te': 'solf-10.mp3',
+  'over ti': 'solf-11.mp3',
 };
 
 export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
@@ -100,6 +124,30 @@ export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
   'third in bass',
   'fifth in bass',
   'seventh in bass',
+  'over degree one',
+  'over degree sharp one',
+  'over degree two',
+  'over degree sharp two',
+  'over degree three',
+  'over degree four',
+  'over degree sharp four',
+  'over degree five',
+  'over degree sharp five',
+  'over degree six',
+  'over degree flat seven',
+  'over degree seven',
+  'over do',
+  'over di',
+  'over re',
+  'over ri',
+  'over mi',
+  'over fa',
+  'over fi',
+  'over sol',
+  'over si',
+  'over la',
+  'over te',
+  'over ti',
 ];
 
 const INVERSION_SUFFIX_KEYS: readonly string[] = [
@@ -109,6 +157,30 @@ const INVERSION_SUFFIX_KEYS: readonly string[] = [
   'third in bass',
   'fifth in bass',
   'seventh in bass',
+  'over degree one',
+  'over degree sharp one',
+  'over degree two',
+  'over degree sharp two',
+  'over degree three',
+  'over degree four',
+  'over degree sharp four',
+  'over degree five',
+  'over degree sharp five',
+  'over degree six',
+  'over degree flat seven',
+  'over degree seven',
+  'over do',
+  'over di',
+  'over re',
+  'over ri',
+  'over mi',
+  'over fa',
+  'over fi',
+  'over sol',
+  'over si',
+  'over la',
+  'over te',
+  'over ti',
 ];
 
 export function getVoiceClipFilename(text: string): string | null {
@@ -116,7 +188,7 @@ export function getVoiceClipFilename(text: string): string | null {
   return PHRASE_TO_FILENAME[key] ?? null;
 }
 
-export const VOICE_CLIPS_VERSION = '9';
+export const VOICE_CLIPS_VERSION = '10';
 
 export function getVoiceClipUrl(text: string): string | null {
   const filename = getVoiceClipFilename(text);

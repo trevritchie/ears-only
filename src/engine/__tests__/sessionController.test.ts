@@ -974,4 +974,58 @@ describe('SessionController state machine & scheduler', () => {
       /^(Five seven seventh in bass|One third in bass)$/,
     );
   });
+
+  it('announces inverted chords in scale-degree and solfege modes and updates lock-screen metadata', () => {
+    const { controller, synth, announcer, pocket, clock } = createHarness(
+      {
+        allowedChords: ['V', 'V7'],
+        bpm: 240,
+        progressionLength: 2,
+        questionRepeats: 1,
+        keyOrientation: 'none',
+        keyMode: 'fixed',
+        fixedKey: 0,
+        chordInversionOverrides: {
+          V: [1], // V (over 7 / Ti)
+          V7: [3], // V7 (over 4 / Fa)
+        },
+        inversionNotation: 'scale-degree',
+      },
+      [0.05, 0.95, 0.5, 0.5],
+    );
+
+    controller.start();
+    advanceAndTick(synth, clock, 1.05);
+    const snap = controller.getSnapshot();
+    const firstIsV = snap.progression[0] === 'V';
+
+    controller.skipToAnswer();
+    expect(announcer.spoken[0].text).toBe(
+      firstIsV ? 'Five over degree seven' : 'Five seven over degree four',
+    );
+    expect(pocket.metadataTitles[pocket.metadataTitles.length - 1]).toContain(
+      firstIsV ? 'V (over 7)' : 'V7 (over 4)',
+    );
+
+    controller.updateSettings({
+      ...DEFAULT_SETTINGS,
+      allowedChords: ['V', 'V7'],
+      bpm: 240,
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      keyMode: 'fixed',
+      fixedKey: 0,
+      chordInversionOverrides: { V: [1], V7: [3] },
+      inversionNotation: 'solfege',
+    });
+    announcer.finishLatest();
+    advanceAndTick(synth, clock, 1.1);
+    expect(announcer.spoken[1].text).toBe(
+      firstIsV ? 'Five seven over fa' : 'Five over ti',
+    );
+    expect(pocket.metadataTitles[pocket.metadataTitles.length - 1]).toContain(
+      firstIsV ? 'V7 (over Fa)' : 'V (over Ti)',
+    );
+  });
 });

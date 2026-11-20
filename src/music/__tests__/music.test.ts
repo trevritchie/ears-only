@@ -280,6 +280,99 @@ describe('music theory & chord definitions', () => {
     expect(
       getSpokenChordPhrase('V7', 'half-diminished', false, 3, 'bass-tone').text,
     ).toBe('Five seven seventh in bass');
+
+    // Scale degree in bass mode
+    expect(formatChordDisplay('V', 1, 'scale-degree')).toEqual({
+      primary: 'V',
+      secondary: 'over 7',
+      inline: 'V (over 7)',
+    });
+    expect(
+      getSpokenChordPhrase('V', 'half-diminished', false, 1, 'scale-degree')
+        .text,
+    ).toBe('Five over degree seven');
+    expect(formatChordDisplay('I', 1, 'scale-degree').inline).toBe('I (over 3)');
+    expect(
+      getSpokenChordPhrase('I', 'half-diminished', false, 1, 'scale-degree')
+        .text,
+    ).toBe('One over degree three');
+    expect(formatChordDisplay('V7', 3, 'scale-degree').inline).toBe(
+      'V7 (over 4)',
+    );
+    expect(
+      getSpokenChordPhrase('V7', 'half-diminished', false, 3, 'scale-degree')
+        .text,
+    ).toBe('Five seven over degree four');
+
+    // Chromatic bass tones on secondary dominants
+    expect(formatChordDisplay('V/ii', 1, 'scale-degree').inline).toBe(
+      'V/ii (over ♯1)',
+    );
+    expect(
+      getSpokenChordPhrase('V/ii', 'half-diminished', false, 1, 'scale-degree')
+        .text,
+    ).toBe('Five of two over degree sharp one');
+    expect(
+      getSpokenChordPhrase('V/iii', 'half-diminished', false, 1, 'scale-degree')
+        .text,
+    ).toBe('Five of three over degree sharp two');
+    expect(
+      getSpokenChordPhrase('V/V', 'half-diminished', false, 1, 'scale-degree')
+        .text,
+    ).toBe('Five of five over degree sharp four');
+    expect(
+      getSpokenChordPhrase('V/vi', 'half-diminished', false, 1, 'scale-degree')
+        .text,
+    ).toBe('Five of six over degree sharp five');
+    expect(formatChordDisplay('V7/IV', 3, 'scale-degree').inline).toBe(
+      'V7/IV (over ♭7)',
+    );
+    expect(
+      getSpokenChordPhrase('V7/IV', 'half-diminished', false, 3, 'scale-degree')
+        .text,
+    ).toBe('Five seven of four over degree flat seven');
+    expect(
+      getSpokenChordPhrase('I', 'half-diminished', false, 0, 'scale-degree')
+        .text,
+    ).toBe('One');
+
+    // Solfege over bass mode
+    expect(formatChordDisplay('V', 1, 'solfege')).toEqual({
+      primary: 'V',
+      secondary: 'over Ti',
+      inline: 'V (over Ti)',
+    });
+    expect(
+      getSpokenChordPhrase('V', 'half-diminished', false, 1, 'solfege').text,
+    ).toBe('Five over ti');
+    expect(formatChordDisplay('I', 1, 'solfege').inline).toBe('I (over Mi)');
+    expect(
+      getSpokenChordPhrase('I', 'half-diminished', false, 1, 'solfege').text,
+    ).toBe('One over mi');
+    expect(formatChordDisplay('V7', 3, 'solfege').inline).toBe('V7 (over Fa)');
+    expect(
+      getSpokenChordPhrase('V7', 'half-diminished', false, 3, 'solfege').text,
+    ).toBe('Five seven over fa');
+    expect(
+      getSpokenChordPhrase('V/ii', 'half-diminished', false, 1, 'solfege').text,
+    ).toBe('Five of two over di');
+    expect(
+      getSpokenChordPhrase('V/iii', 'half-diminished', false, 1, 'solfege')
+        .text,
+    ).toBe('Five of three over ri');
+    expect(
+      getSpokenChordPhrase('V/V', 'half-diminished', false, 1, 'solfege').text,
+    ).toBe('Five of five over fi');
+    expect(
+      getSpokenChordPhrase('V/vi', 'half-diminished', false, 1, 'solfege').text,
+    ).toBe('Five of six over si');
+    expect(
+      getSpokenChordPhrase('V7/IV', 'half-diminished', false, 3, 'solfege')
+        .text,
+    ).toBe('Five seven of four over te');
+    expect(
+      getSpokenChordPhrase('V7', 'half-diminished', false, 0, 'solfege').text,
+    ).toBe('Five seven');
   });
 });
 

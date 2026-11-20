@@ -27,7 +27,12 @@ export type ChordId = DiatonicChordId | SecondaryDominantId;
 export type TriadInversion = 0 | 1 | 2;
 export type SeventhInversion = 0 | 1 | 2 | 3;
 export type ChordInversion = 0 | 1 | 2 | 3;
-export type InversionNotation = 'inversion-name' | 'figured-bass' | 'bass-tone';
+export type InversionNotation =
+  | 'inversion-name'
+  | 'figured-bass'
+  | 'bass-tone'
+  | 'scale-degree'
+  | 'solfege';
 
 export interface ProgressionChord {
   chordId: ChordId;
@@ -310,7 +315,9 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
   const inversionNotation: InversionNotation =
     obj.inversionNotation === 'inversion-name' ||
     obj.inversionNotation === 'figured-bass' ||
-    obj.inversionNotation === 'bass-tone'
+    obj.inversionNotation === 'bass-tone' ||
+    obj.inversionNotation === 'scale-degree' ||
+    obj.inversionNotation === 'solfege'
       ? obj.inversionNotation
       : DEFAULT_SETTINGS.inversionNotation;
 
