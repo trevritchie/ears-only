@@ -1,12 +1,13 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import {
-  ALL_CHORD_IDS,
+  ALL_SECONDARY_DOMINANT_IDS,
   CHORD_DEFS,
   CHORD_PRESETS,
   formatChordDisplay,
   getAllowedInversionsForChord,
   getSpokenChordPhrase,
+  isSecondaryDominantId,
   isSeventhChordId,
   SECONDARY_DOMINANT_PRESETS,
   SECONDARY_SEVENTH_IDS,
@@ -143,6 +144,12 @@ export function ChordSelector({
   const [secMinGuardNotice, setSecMinGuardNotice] = useState(false);
   const [inversionsOpen, setInversionsOpen] = useState(false);
   const [perChordOpen, setPerChordOpen] = useState(false);
+  const [triadsOverridesOpen, setTriadsOverridesOpen] = useState(false);
+  const [seventhsOverridesOpen, setSeventhsOverridesOpen] = useState(false);
+  const [secondaryOverridesOpen, setSecondaryOverridesOpen] = useState(false);
+  const [secTriadsOverridesOpen, setSecTriadsOverridesOpen] = useState(false);
+  const [secSeventhsOverridesOpen, setSecSeventhsOverridesOpen] =
+    useState(false);
   const [invGuardNotice, setInvGuardNotice] = useState(false);
 
   const selectedSet = new Set<ChordId>(allowedChords);
@@ -253,12 +260,114 @@ export function ChordSelector({
     onChangeChordInversionOverrides(updated);
   };
 
-  const activeChordIds: ChordId[] = ALL_CHORD_IDS.filter(
-    (id) =>
-      selectedSet.has(id) ||
-      (secondaryDominantsEnabled && selectedSecondarySet.has(id)),
-  );
+  const isChordCurrentlyActive = (id: ChordId): boolean =>
+    isSecondaryDominantId(id)
+      ? secondaryDominantsEnabled && selectedSecondarySet.has(id)
+      : selectedSet.has(id);
+
+  const countGroupOverrides = (ids: readonly ChordId[]): number =>
+    ids.filter((id) => (chordInversionOverrides[id]?.length ?? 0) > 0).length;
+
+  const resetGroupOverrides = (ids: readonly ChordId[]) => {
+    setInvGuardNotice(false);
+    const updated = { ...chordInversionOverrides };
+    for (const id of ids) {
+      delete updated[id];
+    }
+    onChangeChordInversionOverrides(updated);
+  };
+
   const overrideCount = Object.keys(chordInversionOverrides).length;
+  const triadOverrideCount = countGroupOverrides(TRIAD_IDS);
+  const seventhOverrideCount = countGroupOverrides(SEVENTH_IDS);
+  const secTriadOverrideCount = countGroupOverrides(SECONDARY_TRIAD_IDS);
+  const secSeventhOverrideCount = countGroupOverrides(SECONDARY_SEVENTH_IDS);
+  const secondaryOverrideCount = countGroupOverrides(ALL_SECONDARY_DOMINANT_IDS);
+
+  const hasActiveTriad = TRIAD_IDS.some((id) => selectedSet.has(id));
+  const hasActiveSeventh = SEVENTH_IDS.some((id) => selectedSet.has(id));
+
+  const renderChordOverrideRow = (id: ChordId) => {
+    const def = CHORD_DEFS[id];
+    const isSeventh = isSeventhChordId(id);
+    const isActiveInSession = isChordCurrentlyActive(id);
+    const options = isSeventh
+      ? SEVENTH_INVERSION_OPTIONS
+      : TRIAD_INVERSION_OPTIONS;
+    const effective = getAllowedInversionsForChord(id, {
+      triadInversions,
+      seventhInversions,
+      chordInversionOverrides,
+    });
+    const isOverridden = (chordInversionOverrides[id]?.length ?? 0) > 0;
+
+    return (
+      <div
+        key={id}
+        className="flex items-center gap-1.5 rounded-xl border border-[#2B323B] bg-[#1B1F24] px-2 py-1.5"
+      >
+        <span
+          title={
+            isActiveInSession
+              ? undefined
+              : `${def.symbol} is not currently enabled in Allowed chords`
+          }
+          className={`w-[52px] shrink-0 font-roman text-xs sm:text-sm font-semibold ${
+            isActiveInSession
+              ? isSeventh
+                ? 'text-[#4FB3A4]'
+                : 'text-[#E5A93C]'
+              : 'text-[#9CA3AE]'
+          }`}
+        >
+          {def.symbol}
+        </span>
+        <div className="flex flex-1 gap-1">
+          {options.map((opt) => {
+            const active = effective.includes(opt.inv);
+            const activeClass = isSeventh
+              ? isOverridden
+                ? 'border-[#4FB3A4] bg-[#4FB3A4]/25 text-[#4FB3A4]'
+                : 'border-[#4FB3A4]/45 bg-[#4FB3A4]/10 text-[#4FB3A4]/85'
+              : isOverridden
+                ? 'border-[#E5A93C] bg-[#E5A93C]/25 text-[#E5A93C]'
+                : 'border-[#E5A93C]/45 bg-[#E5A93C]/10 text-[#E5A93C]/85';
+
+            return (
+              <button
+                key={opt.inv}
+                type="button"
+                aria-pressed={active}
+                aria-label={`${def.symbol} ${opt.spokenName}`}
+                onClick={() => toggleChordInversionOverride(id, opt.inv)}
+                className={`min-h-[32px] flex-1 rounded-lg border px-1 text-[11px] font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
+                  active
+                    ? activeClass
+                    : 'border-[#343C47] bg-[#252B33] text-[#7D8590] hover:text-[#F3EFE6]'
+                }`}
+              >
+                {opt.shortLabel}
+              </button>
+            );
+          })}
+        </div>
+        <div className="w-11 shrink-0 text-right">
+          {isOverridden ? (
+            <button
+              type="button"
+              aria-label={`Reset ${def.symbol} inversions`}
+              onClick={() => resetChordOverride(id)}
+              className="text-[11px] font-medium text-[#E5A93C] hover:underline"
+            >
+              Reset
+            </button>
+          ) : (
+            <span className="text-[11px] text-[#7D8590]">Default</span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const hasAutoResolvedTarget =
     secondaryDominantsEnabled &&
@@ -650,12 +759,6 @@ export function ChordSelector({
               </div>
             </div>
 
-            {invGuardNotice && (
-              <p className="text-xs text-[#E5A93C]" role="status">
-                Keep at least one inversion active.
-              </p>
-            )}
-
             {/* Expandable Customize per chord matrix */}
             <div className="border-t border-[#2B323B] pt-2.5">
               <div className="flex items-center justify-between gap-2">
@@ -698,87 +801,322 @@ export function ChordSelector({
               {perChordOpen && (
                 <div
                   id="inversions-per-chord-matrix"
-                  className="mt-2.5 space-y-1.5"
+                  className="mt-2.5 space-y-2"
                 >
-                  {activeChordIds.map((id) => {
-                    const def = CHORD_DEFS[id];
-                    const isSeventh = isSeventhChordId(id);
-                    const options = isSeventh
-                      ? SEVENTH_INVERSION_OPTIONS
-                      : TRIAD_INVERSION_OPTIONS;
-                    const effective = getAllowedInversionsForChord(id, {
-                      triadInversions,
-                      seventhInversions,
-                      chordInversionOverrides,
-                    });
-                    const isOverridden =
-                      (chordInversionOverrides[id]?.length ?? 0) > 0;
-
-                    return (
-                      <div
-                        key={id}
-                        className="flex items-center gap-2 rounded-xl border border-[#2B323B] bg-[#1B1F24] px-2.5 py-1.5"
+                  {/* Level 2a: Triads */}
+                  <div className="rounded-xl border border-[#2B323B] bg-[#1B1F24]/70">
+                    <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+                      <button
+                        type="button"
+                        aria-expanded={triadsOverridesOpen}
+                        aria-controls="inversions-group-triads"
+                        onClick={() => setTriadsOverridesOpen((prev) => !prev)}
+                        className="flex min-h-[34px] flex-1 items-center justify-between gap-2 rounded-lg text-left text-xs font-medium text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C]"
                       >
-                        <span
-                          className={`w-14 shrink-0 font-roman text-sm font-semibold ${
-                            isSeventh ? 'text-[#4FB3A4]' : 'text-[#E5A93C]'
-                          }`}
-                        >
-                          {def.symbol}
+                        <span>Triads</span>
+                        <span className="flex items-center gap-1.5 text-[11px]">
+                          <span
+                            className={
+                              triadOverrideCount > 0
+                                ? 'text-[#E5A93C]'
+                                : 'text-[#7D8590]'
+                            }
+                          >
+                            {triadOverrideCount > 0
+                              ? `${triadOverrideCount} custom`
+                              : 'Default'}
+                          </span>
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 text-[#9CA3AE] transition-transform ${
+                              triadsOverridesOpen ? 'rotate-180' : ''
+                            }`}
+                            aria-hidden="true"
+                          />
                         </span>
-                        <div className="flex flex-1 gap-1">
-                          {options.map((opt) => {
-                            const active = effective.includes(opt.inv);
-                            const activeClass = isSeventh
-                              ? isOverridden
-                                ? 'border-[#4FB3A4] bg-[#4FB3A4]/25 text-[#4FB3A4]'
-                                : 'border-[#4FB3A4]/45 bg-[#4FB3A4]/10 text-[#4FB3A4]/85'
-                              : isOverridden
-                                ? 'border-[#E5A93C] bg-[#E5A93C]/25 text-[#E5A93C]'
-                                : 'border-[#E5A93C]/45 bg-[#E5A93C]/10 text-[#E5A93C]/85';
+                      </button>
+                      {triadOverrideCount > 0 && (
+                        <button
+                          type="button"
+                          aria-label="Reset triad overrides"
+                          onClick={() => resetGroupOverrides(TRIAD_IDS)}
+                          className="rounded-lg border border-[#343C47] bg-[#252B33] px-2 py-1 text-[11px] font-medium text-[#9CA3AE] hover:text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C]"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                    {triadsOverridesOpen && (
+                      <div
+                        id="inversions-group-triads"
+                        className="space-y-1.5 border-t border-[#2B323B] px-2 pb-2 pt-2"
+                      >
+                        {!hasActiveTriad && (
+                          <p className="px-1 text-[11px] leading-relaxed text-[#7D8590]">
+                            Select triads above to include them in progressions.
+                          </p>
+                        )}
+                        {TRIAD_IDS.map(renderChordOverrideRow)}
+                      </div>
+                    )}
+                  </div>
 
-                            return (
-                              <button
-                                key={opt.inv}
-                                type="button"
-                                aria-pressed={active}
-                                aria-label={`${def.symbol} ${opt.spokenName}`}
-                                onClick={() =>
-                                  toggleChordInversionOverride(id, opt.inv)
-                                }
-                                className={`min-h-[32px] flex-1 rounded-lg border px-1 text-[11px] font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C] ${
-                                  active
-                                    ? activeClass
-                                    : 'border-[#343C47] bg-[#252B33] text-[#7D8590] hover:text-[#F3EFE6]'
-                                }`}
-                              >
-                                {opt.shortLabel}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="w-11 shrink-0 text-right">
-                          {isOverridden ? (
+                  {/* Level 2b: Seventh chords */}
+                  <div className="rounded-xl border border-[#2B323B] bg-[#1B1F24]/70">
+                    <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+                      <button
+                        type="button"
+                        aria-expanded={seventhsOverridesOpen}
+                        aria-controls="inversions-group-sevenths"
+                        onClick={() =>
+                          setSeventhsOverridesOpen((prev) => !prev)
+                        }
+                        className="flex min-h-[34px] flex-1 items-center justify-between gap-2 rounded-lg text-left text-xs font-medium text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4]"
+                      >
+                        <span>Seventh chords</span>
+                        <span className="flex items-center gap-1.5 text-[11px]">
+                          <span
+                            className={
+                              seventhOverrideCount > 0
+                                ? 'text-[#4FB3A4]'
+                                : 'text-[#7D8590]'
+                            }
+                          >
+                            {seventhOverrideCount > 0
+                              ? `${seventhOverrideCount} custom`
+                              : 'Default'}
+                          </span>
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 text-[#9CA3AE] transition-transform ${
+                              seventhsOverridesOpen ? 'rotate-180' : ''
+                            }`}
+                            aria-hidden="true"
+                          />
+                        </span>
+                      </button>
+                      {seventhOverrideCount > 0 && (
+                        <button
+                          type="button"
+                          aria-label="Reset seventh chord overrides"
+                          onClick={() => resetGroupOverrides(SEVENTH_IDS)}
+                          className="rounded-lg border border-[#343C47] bg-[#252B33] px-2 py-1 text-[11px] font-medium text-[#9CA3AE] hover:text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4]"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                    {seventhsOverridesOpen && (
+                      <div
+                        id="inversions-group-sevenths"
+                        className="space-y-1.5 border-t border-[#2B323B] px-2 pb-2 pt-2"
+                      >
+                        {!hasActiveSeventh && (
+                          <p className="px-1 text-[11px] leading-relaxed text-[#7D8590]">
+                            Select seventh chords above to include them in progressions.
+                          </p>
+                        )}
+                        {SEVENTH_IDS.map(renderChordOverrideRow)}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Level 2c: Secondary dominants */}
+                  <div className="rounded-xl border border-[#2B323B] bg-[#1B1F24]/70">
+                    <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+                      <button
+                        type="button"
+                        aria-expanded={secondaryOverridesOpen}
+                        aria-controls="inversions-group-secondary"
+                        onClick={() =>
+                          setSecondaryOverridesOpen((prev) => !prev)
+                        }
+                        className="flex min-h-[34px] flex-1 items-center justify-between gap-2 rounded-lg text-left text-xs font-medium text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C]"
+                      >
+                        <span>Secondary dominants</span>
+                        <span className="flex items-center gap-1.5 text-[11px]">
+                          <span
+                            className={
+                              secondaryOverrideCount > 0
+                                ? 'text-[#F3EFE6]'
+                                : 'text-[#7D8590]'
+                            }
+                          >
+                            {secondaryOverrideCount > 0
+                              ? `${secondaryOverrideCount} custom`
+                              : 'Default'}
+                          </span>
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 text-[#9CA3AE] transition-transform ${
+                              secondaryOverridesOpen ? 'rotate-180' : ''
+                            }`}
+                            aria-hidden="true"
+                          />
+                        </span>
+                      </button>
+                      {secondaryOverrideCount > 0 && (
+                        <button
+                          type="button"
+                          aria-label="Reset secondary dominant overrides"
+                          onClick={() =>
+                            resetGroupOverrides(ALL_SECONDARY_DOMINANT_IDS)
+                          }
+                          className="rounded-lg border border-[#343C47] bg-[#252B33] px-2 py-1 text-[11px] font-medium text-[#9CA3AE] hover:text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C]"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                    {secondaryOverridesOpen && (
+                      <div
+                        id="inversions-group-secondary"
+                        className="space-y-1.5 border-t border-[#2B323B] px-1.5 pb-2 pt-2"
+                      >
+                        {!secondaryDominantsEnabled && (
+                          <p className="px-1 text-[11px] leading-relaxed text-[#7D8590]">
+                            Turn on Secondary dominants above to include these chords in progressions.
+                          </p>
+                        )}
+
+                        {/* Level 3a: Secondary dominant triads (V/x) */}
+                        <div
+                          className={
+                            !secondaryDominantsEnabled
+                              ? 'border-t border-[#2B323B] pt-1.5'
+                              : ''
+                          }
+                        >
+                          <div className="flex items-center justify-between gap-2 px-1 py-1">
                             <button
                               type="button"
-                              aria-label={`Reset ${def.symbol} inversions`}
-                              onClick={() => resetChordOverride(id)}
-                              className="text-[11px] font-medium text-[#E5A93C] hover:underline"
+                              aria-expanded={secTriadsOverridesOpen}
+                              aria-controls="inversions-group-secondary-triads"
+                              onClick={() =>
+                                setSecTriadsOverridesOpen((prev) => !prev)
+                              }
+                              className="flex min-h-[32px] flex-1 items-center justify-between gap-2 rounded-lg text-left text-xs font-medium text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C]"
                             >
-                              Reset
+                              <span>
+                                Triads{' '}
+                                <span className="ml-1 font-roman text-[11px] text-[#7D8590]">
+                                  V/x
+                                </span>
+                              </span>
+                              <span className="flex items-center gap-1.5 text-[11px]">
+                                <span
+                                  className={
+                                    secTriadOverrideCount > 0
+                                      ? 'text-[#E5A93C]'
+                                      : 'text-[#7D8590]'
+                                  }
+                                >
+                                  {secTriadOverrideCount > 0
+                                    ? `${secTriadOverrideCount} custom`
+                                    : 'Default'}
+                                </span>
+                                <ChevronDown
+                                  className={`h-3.5 w-3.5 text-[#9CA3AE] transition-transform ${
+                                    secTriadsOverridesOpen ? 'rotate-180' : ''
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                              </span>
                             </button>
-                          ) : (
-                            <span className="text-[11px] text-[#7D8590]">
-                              Default
-                            </span>
+                            {secTriadOverrideCount > 0 && (
+                              <button
+                                type="button"
+                                aria-label="Reset secondary triad overrides"
+                                onClick={() =>
+                                  resetGroupOverrides(SECONDARY_TRIAD_IDS)
+                                }
+                                className="rounded-lg border border-[#343C47] bg-[#252B33] px-2 py-1 text-[11px] font-medium text-[#9CA3AE] hover:text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5A93C]"
+                              >
+                                Reset
+                              </button>
+                            )}
+                          </div>
+                          {secTriadsOverridesOpen && (
+                            <div
+                              id="inversions-group-secondary-triads"
+                              className="space-y-1.5 pt-1.5 pb-1"
+                            >
+                              {SECONDARY_TRIAD_IDS.map(renderChordOverrideRow)}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Level 3b: Secondary dominant sevenths (V7/x) */}
+                        <div className="border-t border-[#2B323B] pt-1.5">
+                          <div className="flex items-center justify-between gap-2 px-1 py-1">
+                            <button
+                              type="button"
+                              aria-expanded={secSeventhsOverridesOpen}
+                              aria-controls="inversions-group-secondary-sevenths"
+                              onClick={() =>
+                                setSecSeventhsOverridesOpen((prev) => !prev)
+                              }
+                              className="flex min-h-[32px] flex-1 items-center justify-between gap-2 rounded-lg text-left text-xs font-medium text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4]"
+                            >
+                              <span>
+                                Dominant 7ths{' '}
+                                <span className="ml-1 font-roman text-[11px] text-[#7D8590]">
+                                  V7/x
+                                </span>
+                              </span>
+                              <span className="flex items-center gap-1.5 text-[11px]">
+                                <span
+                                  className={
+                                    secSeventhOverrideCount > 0
+                                      ? 'text-[#4FB3A4]'
+                                      : 'text-[#7D8590]'
+                                  }
+                                >
+                                  {secSeventhOverrideCount > 0
+                                    ? `${secSeventhOverrideCount} custom`
+                                    : 'Default'}
+                                </span>
+                                <ChevronDown
+                                  className={`h-3.5 w-3.5 text-[#9CA3AE] transition-transform ${
+                                    secSeventhsOverridesOpen ? 'rotate-180' : ''
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                              </span>
+                            </button>
+                            {secSeventhOverrideCount > 0 && (
+                              <button
+                                type="button"
+                                aria-label="Reset secondary dominant seventh overrides"
+                                onClick={() =>
+                                  resetGroupOverrides(SECONDARY_SEVENTH_IDS)
+                                }
+                                className="rounded-lg border border-[#343C47] bg-[#252B33] px-2 py-1 text-[11px] font-medium text-[#9CA3AE] hover:text-[#F3EFE6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4FB3A4]"
+                              >
+                                Reset
+                              </button>
+                            )}
+                          </div>
+                          {secSeventhsOverridesOpen && (
+                            <div
+                              id="inversions-group-secondary-sevenths"
+                              className="space-y-1.5 pt-1.5 pb-0.5"
+                            >
+                              {SECONDARY_SEVENTH_IDS.map(
+                                renderChordOverrideRow,
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
                 </div>
               )}
             </div>
+
+            {invGuardNotice && (
+              <p className="text-xs text-[#E5A93C]" role="status">
+                Keep at least one inversion active.
+              </p>
+            )}
 
             {/* Display and spoken format */}
             <div className="border-t border-[#2B323B] pt-3">

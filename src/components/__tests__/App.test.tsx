@@ -312,6 +312,10 @@ describe('Paws Off App UI', () => {
     await user.click(
       screen.getByRole('button', { name: /customize per chord/i }),
     );
+    const perChordMatrix = document.getElementById('inversions-per-chord-matrix')!;
+    await user.click(
+      within(perChordMatrix).getByRole('button', { name: /^triads/i }),
+    );
     await user.click(
       screen.getByRole('button', { name: 'I second inversion' }),
     );
@@ -361,5 +365,117 @@ describe('Paws Off App UI', () => {
     expect(saved.chordInversionOverrides).toEqual({ I: [0, 1, 2] });
     expect(saved.inversionNotation).toBe('figured-bass');
     expect(saved.musicalInversionLeading).toBe(false);
+  });
+
+  it('provides progressive-disclosure per-chord inversion drawers for sevenths and secondary dominants even when unchecked', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    // Open Level 0 (Inversions) and Level 1 (Customize per chord) while 7ths and secondary dominants remain disabled
+    await user.click(screen.getByRole('button', { name: /inversions/i }));
+    await user.click(
+      screen.getByRole('button', { name: /customize per chord/i }),
+    );
+
+    const perChordMatrix = document.getElementById('inversions-per-chord-matrix')!;
+    const triadsDrawer = within(perChordMatrix).getByRole('button', {
+      name: /^triads/i,
+    });
+    const seventhsDrawer = within(perChordMatrix).getByRole('button', {
+      name: /^seventh chords/i,
+    });
+    const secondaryDrawer = within(perChordMatrix).getByRole('button', {
+      name: /^secondary dominants/i,
+    });
+
+    expect(triadsDrawer).toHaveAttribute('aria-expanded', 'false');
+    expect(seventhsDrawer).toHaveAttribute('aria-expanded', 'false');
+    expect(secondaryDrawer).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('button', { name: 'I second inversion' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'V7 third inversion' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'V/V first inversion' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'V7/IV third inversion' }),
+    ).not.toBeInTheDocument();
+
+    // Expand Level 2b: Seventh chords (even though none are active above)
+    await user.click(seventhsDrawer);
+    expect(seventhsDrawer).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByText(/select seventh chords above to include them in progressions/i),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: 'V7 third inversion' }),
+    );
+    expect(screen.getByText('1 override')).toBeInTheDocument();
+    expect(within(perChordMatrix).getByText('1 custom')).toBeInTheDocument();
+
+    // Expand Level 2c: Secondary dominants container; Level 3 sub-drawers start collapsed
+    await user.click(secondaryDrawer);
+    expect(secondaryDrawer).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByText(
+        /turn on secondary dominants above to include these chords in progressions/i,
+      ),
+    ).toBeInTheDocument();
+    const secContainer = document.getElementById('inversions-group-secondary')!;
+    const secTriadsDrawer = within(secContainer).getByRole('button', {
+      name: /^triads\s+V\/x/i,
+    });
+    const secSeventhsDrawer = within(secContainer).getByRole('button', {
+      name: /^dominant 7ths\s+V7\/x/i,
+    });
+    expect(secTriadsDrawer).toHaveAttribute('aria-expanded', 'false');
+    expect(secSeventhsDrawer).toHaveAttribute('aria-expanded', 'false');
+
+    // Expand Level 3a (Triads V/x) and Level 3b (Dominant 7ths V7/x) and set overrides
+    await user.click(secTriadsDrawer);
+    expect(secTriadsDrawer).toHaveAttribute('aria-expanded', 'true');
+    await user.click(
+      screen.getByRole('button', { name: 'V/V first inversion' }),
+    );
+
+    await user.click(secSeventhsDrawer);
+    expect(secSeventhsDrawer).toHaveAttribute('aria-expanded', 'true');
+    await user.click(
+      screen.getByRole('button', { name: 'V7/IV third inversion' }),
+    );
+
+    expect(screen.getByText('3 overrides')).toBeInTheDocument();
+    const saved = JSON.parse(
+      window.localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}',
+    );
+    expect(saved.chordInversionOverrides).toEqual({
+      V7: [0, 3],
+      'V/V': [0, 1],
+      'V7/IV': [0, 3],
+    });
+
+    // Reset secondary triad overrides via sibling button; V7 and V7/IV remain
+    await user.click(
+      screen.getByRole('button', { name: 'Reset secondary triad overrides' }),
+    );
+    expect(screen.getByText('2 overrides')).toBeInTheDocument();
+    const afterSecTriadReset = JSON.parse(
+      window.localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}',
+    );
+    expect(afterSecTriadReset.chordInversionOverrides).toEqual({
+      V7: [0, 3],
+      'V7/IV': [0, 3],
+    });
+
+    // Reset all overrides globally
+    await user.click(screen.getByRole('button', { name: 'Reset all' }));
+    expect(screen.getByText('Using defaults')).toBeInTheDocument();
+    const afterResetAll = JSON.parse(
+      window.localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}',
+    );
+    expect(afterResetAll.chordInversionOverrides).toEqual({});
   });
 });
