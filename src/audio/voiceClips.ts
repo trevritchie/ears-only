@@ -29,7 +29,7 @@ const PHRASE_TO_FILENAME: Record<string, string> = {
   'two minor seven': 'chord-ii7.mp3',
   'three minor seven': 'chord-iii7.mp3',
   'four major seven': 'chord-IVmaj7.mp3',
-  'five dominant seven': 'chord-V7.mp3',
+  'five seven': 'chord-V7.mp3',
   'six minor seven': 'chord-vi7.mp3',
   'seven half diminished': 'chord-viihalfdim7.mp3',
   'seven minor seven flat five': 'chord-viihalfdim7-m7b5.mp3',
@@ -42,6 +42,12 @@ const PHRASE_TO_FILENAME: Record<string, string> = {
   'five seven of four': 'chord-V7-of-IV.mp3',
   'five seven of five': 'chord-V7-of-V.mp3',
   'five seven of six': 'chord-V7-of-vi.mp3',
+  'first inversion': 'inv-1.mp3',
+  'second inversion': 'inv-2.mp3',
+  'third inversion': 'inv-3.mp3',
+  'with the third in the bass': 'bass-3.mp3',
+  'with the fifth in the bass': 'bass-5.mp3',
+  'with the seventh in the bass': 'bass-7.mp3',
 };
 
 export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
@@ -75,7 +81,7 @@ export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
   'Two minor seven',
   'Three minor seven',
   'Four major seven',
-  'Five dominant seven',
+  'Five seven',
   'Six minor seven',
   'Seven half diminished',
   'Seven minor seven flat five',
@@ -88,6 +94,21 @@ export const ALL_VOICE_CLIP_TEXTS: readonly string[] = [
   'Five seven of four',
   'Five seven of five',
   'Five seven of six',
+  'first inversion',
+  'second inversion',
+  'third inversion',
+  'with the third in the bass',
+  'with the fifth in the bass',
+  'with the seventh in the bass',
+];
+
+const INVERSION_SUFFIX_KEYS: readonly string[] = [
+  'first inversion',
+  'second inversion',
+  'third inversion',
+  'with the third in the bass',
+  'with the fifth in the bass',
+  'with the seventh in the bass',
 ];
 
 export function getVoiceClipFilename(text: string): string | null {
@@ -95,7 +116,7 @@ export function getVoiceClipFilename(text: string): string | null {
   return PHRASE_TO_FILENAME[key] ?? null;
 }
 
-export const VOICE_CLIPS_VERSION = '7';
+export const VOICE_CLIPS_VERSION = '8';
 
 export function getVoiceClipUrl(text: string): string | null {
   const filename = getVoiceClipFilename(text);
@@ -106,4 +127,24 @@ export function getVoiceClipUrl(text: string): string | null {
     '/';
   const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
   return `${base}voice/${filename}?v=${VOICE_CLIPS_VERSION}`;
+}
+
+export function getVoiceClipUrlsForPhrase(text: string): string[] | null {
+  const direct = getVoiceClipUrl(text);
+  if (direct) return [direct];
+
+  const normalized = text.trim().toLowerCase();
+  for (const suffix of INVERSION_SUFFIX_KEYS) {
+    const marker = ` ${suffix}`;
+    if (normalized.endsWith(marker)) {
+      const baseText = normalized.slice(0, -marker.length).trim();
+      const baseUrl = getVoiceClipUrl(baseText);
+      const suffixUrl = getVoiceClipUrl(suffix);
+      if (baseUrl && suffixUrl) {
+        return [baseUrl, suffixUrl];
+      }
+    }
+  }
+
+  return null;
 }

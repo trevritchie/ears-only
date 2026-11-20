@@ -918,4 +918,60 @@ describe('SessionController state machine & scheduler', () => {
     freeMove.controller.start();
     expect(freeMove.controller.getSnapshot().progression).toEqual(['V7/V', 'I']);
   });
+
+  it('tracks progressionInversions, voices inverted bass tones, speaks inversion phrases, and updates lock-screen metadata', () => {
+    const { controller, synth, announcer, pocket, clock } = createHarness({
+      allowedChords: ['V7', 'I'],
+      bpm: 240,
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      keyMode: 'fixed',
+      fixedKey: 0, // C major
+      chordInversionOverrides: {
+        V7: [3], // V7 3rd inversion -> F in bass (F % 12 === 5)
+        I: [1], // I 1st inversion -> E in bass (E % 12 === 4)
+      },
+      inversionNotation: 'inversion-name',
+    });
+
+    controller.start();
+    advanceAndTick(synth, clock, 1.05);
+    const snap = controller.getSnapshot();
+    expect(snap.progressionInversions).toHaveLength(2);
+    snap.progression.forEach((chordId, i) => {
+      const expectedBassPc = chordId === 'V7' ? 5 : 4;
+      expect(snap.progressionInversions[i]).toBe(chordId === 'V7' ? 3 : 1);
+      expect(synth.chords[i].notes[0].midi % 12).toBe(expectedBassPc);
+    });
+
+    controller.skipToAnswer();
+    expect(announcer.spoken[0].text).toMatch(
+      /^(Five seven third inversion|One first inversion)$/,
+    );
+    const firstExpectedLabel =
+      snap.progression[0] === 'V7' ? 'V7 (3rd)' : 'I (1st)';
+    expect(pocket.metadataTitles[pocket.metadataTitles.length - 1]).toContain(
+      firstExpectedLabel,
+    );
+
+    // Finish first chord reveal and verify second chord speaks in Bass tone mode
+    controller.updateSettings({
+      ...DEFAULT_SETTINGS,
+      allowedChords: ['V7', 'I'],
+      bpm: 240,
+      progressionLength: 2,
+      questionRepeats: 1,
+      keyOrientation: 'none',
+      keyMode: 'fixed',
+      fixedKey: 0,
+      chordInversionOverrides: { V7: [3], I: [1] },
+      inversionNotation: 'bass-tone',
+    });
+    announcer.finishLatest();
+    advanceAndTick(synth, clock, 1.1);
+    expect(announcer.spoken[1].text).toMatch(
+      /^(Five seven with the seventh in the bass|One with the third in the bass)$/,
+    );
+  });
 });

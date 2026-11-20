@@ -4,15 +4,19 @@ import {
   ALL_SECONDARY_DOMINANT_IDS,
   CHORD_DEFS,
   DIATONIC_CHORD_IDS,
+  formatChordDisplay,
+  getAllowedInversionsForChord,
   getMajorScalePitchClasses,
   getScaleDegreePitchClass,
   getSpokenChordPhrase,
+  isSeventhChordId,
   isSecondaryDominantId,
   MAJOR_KEYS,
   SECONDARY_SEVENTH_IDS,
   SECONDARY_TRIAD_IDS,
 } from '../chords';
 import {
+  assignProgressionInversions,
   generateProgression,
   getOrientationChords,
   pickRandomNextKey,
@@ -25,7 +29,14 @@ import {
   matchUpperVoicePans,
 } from '../panning';
 import { RootBassVoiceLedStrategy } from '../voicing';
-import type { ChordId, DiatonicChordId, PitchClass } from '../../types/settings';
+import {
+  DEFAULT_SETTINGS,
+  type ChordId,
+  type ChordInversion,
+  type DiatonicChordId,
+  type PitchClass,
+  type ProgressionChord,
+} from '../../types/settings';
 
 function upperMotionDistance(
   a: readonly [number, number, number],
@@ -138,8 +149,8 @@ describe('music theory & chord definitions', () => {
 
     // Seventh chords stay identical regardless of announceTriadQuality
     expect(getSpokenChordPhrase('V7', 'half-diminished')).toEqual({
-      text: 'Five dominant seven',
-      estimatedSyllables: 6,
+      text: 'Five seven',
+      estimatedSyllables: 3,
     });
     for (const seventhId of [
       'Imaj7',
@@ -182,6 +193,93 @@ describe('music theory & chord definitions', () => {
     expect(getScaleDegreePitchClass(7, 4)).toBe(0);
     expect(getScaleDegreePitchClass(7, 5)).toBe(2);
     expect(getScaleDegreePitchClass(7, 7)).toBe(6);
+  });
+
+  it('resolves global vs per-chord inversion precedence and formats display & speech across all 3 notation modes', () => {
+    expect(
+      getAllowedInversionsForChord('I', {
+        triadInversions: [0, 1],
+        seventhInversions: [0, 2],
+        chordInversionOverrides: {},
+      }),
+    ).toEqual([0, 1]);
+    expect(
+      getAllowedInversionsForChord('V/ii', {
+        triadInversions: [0, 1],
+        seventhInversions: [0, 2],
+        chordInversionOverrides: { 'V/ii': [1, 2] },
+      }),
+    ).toEqual([1, 2]);
+    expect(
+      getAllowedInversionsForChord('V7', {
+        triadInversions: [0],
+        seventhInversions: [0, 3],
+        chordInversionOverrides: { V7: [1] },
+      }),
+    ).toEqual([1]);
+
+    // Root position stays clean across display & speech
+    expect(formatChordDisplay('I', 0, 'inversion-name')).toEqual({
+      primary: 'I',
+      inline: 'I',
+    });
+    expect(
+      getSpokenChordPhrase('I', 'half-diminished', false, 0, 'inversion-name')
+        .text,
+    ).toBe('One');
+
+    // Inversion name mode
+    expect(formatChordDisplay('I', 1, 'inversion-name')).toEqual({
+      primary: 'I',
+      secondary: '1st',
+      inline: 'I (1st)',
+    });
+    expect(
+      getSpokenChordPhrase('I', 'half-diminished', false, 1, 'inversion-name')
+        .text,
+    ).toBe('One first inversion');
+    expect(
+      getSpokenChordPhrase(
+        'Imaj7',
+        'half-diminished',
+        false,
+        3,
+        'inversion-name',
+      ).text,
+    ).toBe('One major seven third inversion');
+    expect(
+      getSpokenChordPhrase('V7', 'half-diminished', false, 3, 'inversion-name')
+        .text,
+    ).toBe('Five seven third inversion');
+
+    // Figured bass mode: visual figured bass, speech matches inversion name mode
+    expect(formatChordDisplay('I', 1, 'figured-bass').inline).toBe('I⁶');
+    expect(formatChordDisplay('I', 2, 'figured-bass').inline).toBe('I⁶₄');
+    expect(formatChordDisplay('Imaj7', 1, 'figured-bass').inline).toBe(
+      'Imaj⁶₅',
+    );
+    expect(formatChordDisplay('V7', 2, 'figured-bass').inline).toBe('V⁴₃');
+    expect(formatChordDisplay('V7', 3, 'figured-bass').inline).toBe('V⁴₂');
+    expect(formatChordDisplay('V7/IV', 3, 'figured-bass').inline).toBe(
+      'V⁴₂/IV',
+    );
+    expect(
+      getSpokenChordPhrase('I', 'half-diminished', false, 1, 'figured-bass')
+        .text,
+    ).toBe('One first inversion');
+
+    // Bass tone mode
+    expect(formatChordDisplay('I', 1, 'bass-tone')).toEqual({
+      primary: 'I',
+      secondary: '3rd in bass',
+      inline: 'I (3rd in bass)',
+    });
+    expect(
+      getSpokenChordPhrase('I', 'half-diminished', false, 1, 'bass-tone').text,
+    ).toBe('One with the third in the bass');
+    expect(
+      getSpokenChordPhrase('V7', 'half-diminished', false, 3, 'bass-tone').text,
+    ).toBe('Five seven with the seventh in the bass');
   });
 });
 
@@ -229,6 +327,104 @@ describe('RootBassVoiceLedStrategy', () => {
       }
       const naiveDistance = naiveRootPositionDistance(seq, 0);
       expect(dpDistance).toBeLessThan(naiveDistance);
+    }
+  });
+
+  it('voices all inversions across all 12 keys with proper SATB bass, doubling, and no parallel 5ths/8ves', () => {
+    for (const keyInfo of MAJOR_KEYS) {
+      for (const chordId of ALL_CHORD_IDS) {
+        const def = CHORD_DEFS[chordId];
+        const maxInv = isSeventhChordId(chordId) ? 3 : 2;
+        for (let inv = 0; inv <= maxInv; inv++) {
+          const [voiced] = strategy.voiceSequence(
+            [{ chordId, inversion: inv as ChordInversion }],
+            keyInfo.pitchClass,
+          );
+          const rootPc = (keyInfo.pitchClass + def.rootOffset) % 12;
+          const expectedBassPc = (rootPc + def.intervals[inv]) % 12;
+          expect(voiced.bassMidi % 12).toBe(expectedBassPc);
+          expect(voiced.bassMidi).toBeGreaterThanOrEqual(40);
+          expect(voiced.bassMidi).toBeLessThanOrEqual(55);
+
+          const [u0, u1, u2] = voiced.upperMidis;
+          expect(u0).toBeLessThan(u1);
+          expect(u1).toBeLessThan(u2);
+          expect(u1 - u0).toBeGreaterThanOrEqual(2);
+          expect(u2 - u1).toBeGreaterThanOrEqual(2);
+
+          const allPcs = voiced.allMidis.map((m) => m % 12);
+          // 7th chords always have all 4 distinct tones
+          if (isSeventhChordId(chordId)) {
+            expect(new Set(allPcs).size).toBe(4);
+          } else {
+            expect(new Set(allPcs).size).toBe(3);
+          }
+
+          // 6/4 triads always double the bass (5th)
+          if (!isSeventhChordId(chordId) && inv === 2) {
+            expect(allPcs.filter((pc) => pc === expectedBassPc)).toHaveLength(
+              2,
+            );
+          }
+
+          // V6 and secondary V6/x never double the leading-tone bass
+          if (
+            inv === 1 &&
+            (chordId === 'V' || def.category === 'secondary-triad')
+          ) {
+            expect(allPcs.filter((pc) => pc === expectedBassPc)).toHaveLength(
+              1,
+            );
+          }
+
+          // vii°6 doubles its stable bass (3rd = scale degree 2)
+          if (chordId === 'viio' && inv === 1) {
+            expect(allPcs.filter((pc) => pc === expectedBassPc)).toHaveLength(
+              2,
+            );
+          }
+        }
+      }
+    }
+
+    // Classic inverted progressions produce zero parallel 5ths/octaves across all 6 pairs
+    const cadences: ProgressionChord[][] = [
+      [
+        { chordId: 'I', inversion: 0 },
+        { chordId: 'V', inversion: 1 },
+        { chordId: 'vi', inversion: 0 },
+      ],
+      [
+        { chordId: 'I', inversion: 0 },
+        { chordId: 'I', inversion: 2 },
+        { chordId: 'V7', inversion: 0 },
+        { chordId: 'I', inversion: 0 },
+      ],
+      [
+        { chordId: 'I', inversion: 0 },
+        { chordId: 'V7', inversion: 3 },
+        { chordId: 'I', inversion: 1 },
+      ],
+    ];
+    for (const prog of cadences) {
+      const voiced = strategy.voiceSequence(prog, 0);
+      for (let i = 1; i < voiced.length; i++) {
+        const p = voiced[i - 1].allMidis;
+        const c = voiced[i].allMidis;
+        for (let a = 0; a < 4; a++) {
+          for (let b = a + 1; b < 4; b++) {
+            const da = c[a] - p[a];
+            const db = c[b] - p[b];
+            if (da !== 0 && db !== 0 && Math.sign(da) === Math.sign(db)) {
+              const pi = (((p[b] - p[a]) % 12) + 12) % 12;
+              const ci = (((c[b] - c[a]) % 12) + 12) % 12;
+              expect((pi === 0 && ci === 0) || (pi === 7 && ci === 7)).toBe(
+                false,
+              );
+            }
+          }
+        }
+      }
     }
   });
 });
@@ -328,6 +524,41 @@ describe('progression & key generators', () => {
   it('handles a 1-chord pool safely without crashing', () => {
     const seq = generateProgression(['Imaj7'], 4);
     expect(seq).toEqual(['Imaj7', 'Imaj7', 'Imaj7', 'Imaj7']);
+  });
+
+  it('assigns inversions with both musical weighting and purely random selection', () => {
+    const allowedFn = (id: ChordId) =>
+      getAllowedInversionsForChord(id, {
+        ...DEFAULT_SETTINGS,
+        triadInversions: [0, 1, 2],
+        seventhInversions: [0, 1, 2, 3],
+      });
+
+    // Musical weighting favors V4/2 -> I6 (stepwise down to 1st inversion) more often than I root
+    let resolvedToI6 = 0;
+    for (let run = 0; run < 60; run++) {
+      const assigned = assignProgressionInversions(
+        ['V7', 'I'],
+        (id) => (id === 'V7' ? [3] : [0, 1, 2]),
+        0,
+        true,
+      );
+      expect(assigned).toHaveLength(2);
+      if (assigned[1].inversion === 1) resolvedToI6++;
+    }
+    expect(resolvedToI6).toBeGreaterThan(25);
+
+    // Non-musical mode respects arbitrary allowed pools cleanly
+    const randomAssigned = assignProgressionInversions(
+      ['I', 'V7', 'vi', 'IV'],
+      allowedFn,
+      0,
+      false,
+    );
+    expect(randomAssigned).toHaveLength(4);
+    randomAssigned.forEach((item) => {
+      expect(allowedFn(item.chordId)).toContain(item.inversion);
+    });
   });
 
   it('never picks the current key on key rotation', () => {

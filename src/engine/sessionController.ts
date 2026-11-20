@@ -10,14 +10,16 @@ import {
   type ScheduledNote,
 } from '../music/arrangement';
 import {
-  CHORD_DEFS,
+  formatChordDisplay,
+  getAllowedInversionsForChord,
+  getInversionSuffixPhrases,
   getMajorKeyInfo,
   getScaleDegreePitchClass,
   getSpokenChordPhrase,
   getSpokenKeyPhrase,
 } from '../music/chords';
 import {
-  generateProgression,
+  generateProgressionWithInversions,
   getCandidateResolutionTargets,
   getOrientationChords,
   pickRandomKey,
@@ -37,6 +39,7 @@ import {
 import type {
   AmbienceMode,
   ChordId,
+  ChordInversion,
   PitchClass,
   SessionSettings,
   TimbreId,
@@ -68,6 +71,7 @@ export interface SessionSnapshot {
   currentPass: number;
   totalPasses: number;
   progression: ChordId[];
+  progressionInversions: ChordInversion[];
   activeChordIndex: number;
   revealedCount: number;
   orientationStepIndex: number;
@@ -126,6 +130,7 @@ export class SessionController {
   private questionsInCurrentKey = 0;
   private currentPass = 1;
   private progression: ChordId[] = [];
+  private progressionInversions: ChordInversion[] = [];
   private voicedProgression: VoicedChord[] = [];
   private progressionPans: [number, number, number, number][] = [];
   private progressionVowels: ChoirVowel[] = [];
@@ -163,12 +168,25 @@ export class SessionController {
   private lastQuestionReleaseSec = 0;
   private previewVoice: ChordVoiceHandle | null = null;
 
-  constructor(initialSettings: SessionSettings, deps: SessionDependencies = {}) {
-    this.settings = {
-      ...initialSettings,
-      allowedChords: [...initialSettings.allowedChords],
-      allowedSecondaryDominants: [...initialSettings.allowedSecondaryDominants],
+  private cloneSettings(source: SessionSettings): SessionSettings {
+    const overridesCopy: Partial<Record<ChordId, ChordInversion[]>> = {};
+    for (const [k, v] of Object.entries(source.chordInversionOverrides)) {
+      if (v && v.length > 0) {
+        overridesCopy[k as ChordId] = [...v];
+      }
+    }
+    return {
+      ...source,
+      allowedChords: [...source.allowedChords],
+      allowedSecondaryDominants: [...source.allowedSecondaryDominants],
+      triadInversions: [...source.triadInversions],
+      seventhInversions: [...source.seventhInversions],
+      chordInversionOverrides: overridesCopy,
     };
+  }
+
+  constructor(initialSettings: SessionSettings, deps: SessionDependencies = {}) {
+    this.settings = this.cloneSettings(initialSettings);
     this.activeKey = initialSettings.fixedKey;
 
     const ownsSynth = !deps.synth;
@@ -216,6 +234,7 @@ export class SessionController {
       currentPass: this.currentPass,
       totalPasses: this.settings.questionRepeats,
       progression: [...this.progression],
+      progressionInversions: [...this.progressionInversions],
       activeChordIndex: this.activeChordIndex,
       revealedCount: this.revealedCount,
       orientationStepIndex: this.orientationStepIndex,
@@ -278,8 +297,15 @@ export class SessionController {
     ) {
       const answerSymbols = this.progression
         .slice(0, Math.max(1, this.revealedCount))
-        .map((id) => CHORD_DEFS[id].symbol)
-        .join(' – ');
+        .map(
+          (id, idx) =>
+            formatChordDisplay(
+              id,
+              this.progressionInversions[idx] ?? 0,
+              this.settings.inversionNotation,
+            ).inline,
+        )
+        .join(' - ');
       title = `Q${this.questionNumber} Answer: ${answerSymbols}`;
     } else if (this.phase === 'next_question_pause') {
       title = `Q${this.questionNumber} Complete`;
@@ -294,6 +320,8 @@ export class SessionController {
 
   private getPreloadPhrases(): string[] {
     const phrases = new Set<string>([getSpokenKeyPhrase(this.activeKey)]);
+    let hasNonRootInversion = false;
+
     const addChord = (chordId: ChordId) => {
       phrases.add(
         getSpokenChordPhrase(
@@ -302,6 +330,13 @@ export class SessionController {
           this.settings.announceTriadQuality,
         ).text,
       );
+      if (
+        getAllowedInversionsForChord(chordId, this.settings).some(
+          (inv) => inv > 0,
+        )
+      ) {
+        hasNonRootInversion = true;
+      }
     };
 
     for (const chordId of this.settings.allowedChords) {
@@ -318,6 +353,13 @@ export class SessionController {
             addChord(target);
           }
         }
+      }
+    }
+    if (hasNonRootInversion) {
+      for (const suffix of getInversionSuffixPhrases(
+        this.settings.inversionNotation,
+      )) {
+        phrases.add(suffix);
       }
     }
     return Array.from(phrases);
@@ -343,6 +385,7 @@ export class SessionController {
     this.questionsInCurrentKey = 0;
     this.previousQuestionEndVoicing = undefined;
     this.progression = [];
+    this.progressionInversions = [];
     this.voicedProgression = [];
     this.activeChordIndex = -1;
     this.revealedCount = 0;
@@ -554,11 +597,7 @@ export class SessionController {
 
   updateSettings(next: SessionSettings): void {
     const prev = this.settings;
-    this.settings = {
-      ...next,
-      allowedChords: [...next.allowedChords],
-      allowedSecondaryDominants: [...next.allowedSecondaryDominants],
-    };
+    this.settings = this.cloneSettings(next);
     this.announcer.setMode?.(next.voiceSource);
     this.synth.setChordVolume(next.chordVolume);
     this.synth.setVoiceVolume(next.voiceVolume);
@@ -648,16 +687,21 @@ export class SessionController {
     const activeSecondaryDominants = this.settings.secondaryDominantsEnabled
       ? this.settings.allowedSecondaryDominants
       : [];
-    this.progression = generateProgression(
+    const generated = generateProgressionWithInversions(
       this.settings.allowedChords,
       this.settings.progressionLength,
+      (chordId) => getAllowedInversionsForChord(chordId, this.settings),
+      this.activeKey,
+      this.settings.musicalInversionLeading,
       this.progression.length > 0 ? this.progression : undefined,
       this.rng,
       activeSecondaryDominants,
       this.settings.strictSecondaryResolution,
     );
+    this.progression = generated.map((item) => item.chordId);
+    this.progressionInversions = generated.map((item) => item.inversion);
     this.voicedProgression = this.voicingStrategy.voiceSequence(
-      this.progression,
+      generated,
       this.activeKey,
       this.previousQuestionEndVoicing,
     );
@@ -823,10 +867,13 @@ export class SessionController {
     }
 
     const chordId = this.progression[index];
+    const inversion = this.progressionInversions[index] ?? 0;
     const { text, estimatedSyllables } = getSpokenChordPhrase(
       chordId,
       this.settings.halfDimNaming,
       this.settings.announceTriadQuality,
+      inversion,
+      this.settings.inversionNotation,
     );
 
     const baseSlotSec = this.getSlotDurationSec();

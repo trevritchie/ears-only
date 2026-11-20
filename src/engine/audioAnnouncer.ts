@@ -1,9 +1,17 @@
-import { getVoiceClipUrl } from '../audio/voiceClips';
+import { getVoiceClipUrlsForPhrase } from '../audio/voiceClips';
 import type { SpeakOptions } from './speech';
 
 export interface VoiceSynthHost {
   getAudioContext(): AudioContext | null;
   getVoiceInput(): AudioNode | null;
+}
+
+/** Trim trailing fade/guard silence + lead-in when chaining two voice clips. */
+const CHAIN_OVERLAP_SEC = 0.19;
+
+interface ActiveVoiceNode {
+  source: AudioBufferSourceNode;
+  gain: GainNode;
 }
 
 export class AudioBufferAnnouncer {
@@ -14,8 +22,7 @@ export class AudioBufferAnnouncer {
   private readonly fetchPromises = new Map<string, Promise<ArrayBuffer | null>>();
   private readonly decodePromises = new Map<string, Promise<AudioBuffer | null>>();
 
-  private activeSource: AudioBufferSourceNode | null = null;
-  private activeGain: GainNode | null = null;
+  private activeChain: ActiveVoiceNode[] = [];
   private watchdogTimer: number | null = null;
   private speechToken = 0;
 
@@ -80,13 +87,18 @@ export class AudioBufferAnnouncer {
 
   preload(texts: readonly string[]): void {
     const ctx = this.host.getAudioContext();
+    const seenUrls = new Set<string>();
     for (const text of texts) {
-      const url = getVoiceClipUrl(text);
-      if (!url) continue;
-      if (ctx) {
-        void this.loadBuffer(url);
-      } else {
-        void this.fetchRaw(url);
+      const urls = getVoiceClipUrlsForPhrase(text);
+      if (!urls) continue;
+      for (const url of urls) {
+        if (seenUrls.has(url)) continue;
+        seenUrls.add(url);
+        if (ctx) {
+          void this.loadBuffer(url);
+        } else {
+          void this.fetchRaw(url);
+        }
       }
     }
   }
@@ -94,10 +106,24 @@ export class AudioBufferAnnouncer {
   estimateDurationSec(syllables: number, rate: number, text?: string): number {
     const safeRate = Math.max(0.5, rate);
     if (text) {
-      const url = getVoiceClipUrl(text);
-      const buf = url ? this.bufferCache.get(url) : undefined;
-      if (buf) {
-        return buf.duration / safeRate;
+      const urls = getVoiceClipUrlsForPhrase(text);
+      if (urls && urls.length > 0) {
+        const bufs = urls.map((u) => this.bufferCache.get(u));
+        if (bufs.every((b): b is AudioBuffer => b !== undefined)) {
+          let totalSec = 0;
+          for (let i = 0; i < bufs.length; i++) {
+            const clipSec = bufs[i].duration / safeRate;
+            if (i < bufs.length - 1) {
+              totalSec += Math.max(
+                0.15,
+                (bufs[i].duration - CHAIN_OVERLAP_SEC) / safeRate,
+              );
+            } else {
+              totalSec += clipSec;
+            }
+          }
+          return totalSec;
+        }
       }
     }
     return (0.18 + syllables * 0.17) / safeRate;
@@ -109,17 +135,17 @@ export class AudioBufferAnnouncer {
       this.watchdogTimer = null;
     }
 
-    const source = this.activeSource;
-    const gain = this.activeGain;
-    this.activeSource = null;
-    this.activeGain = null;
+    const chain = this.activeChain;
+    this.activeChain = [];
+    if (chain.length === 0) return;
 
-    if (source) {
+    const ctx = this.host.getAudioContext();
+    const now = ctx ? ctx.currentTime : 0;
+
+    for (const { source, gain } of chain) {
       source.onended = null;
       try {
-        const ctx = this.host.getAudioContext();
-        const now = ctx ? ctx.currentTime : 0;
-        if (gain && ctx) {
+        if (ctx) {
           gain.gain.setValueAtTime(gain.gain.value, now);
           gain.gain.linearRampToValueAtTime(0, now + 0.03);
           source.stop(now + 0.035);
@@ -133,8 +159,8 @@ export class AudioBufferAnnouncer {
   }
 
   async trySpeak(text: string, options: SpeakOptions): Promise<boolean> {
-    const url = getVoiceClipUrl(text);
-    if (!url) return false;
+    const urls = getVoiceClipUrlsForPhrase(text);
+    if (!urls || urls.length === 0) return false;
 
     this.speechToken++;
     const token = this.speechToken;
@@ -148,32 +174,65 @@ export class AudioBufferAnnouncer {
       void ctx.resume().catch(() => {});
     }
 
-    let buffer = this.bufferCache.get(url) ?? null;
-    if (!buffer) {
-      buffer = await this.loadBuffer(url);
-      if (token !== this.speechToken) {
-        // Cancelled while awaiting fetch/decode; treat as handled cleanly.
-        return true;
-      }
-      if (!buffer) {
-        return false;
-      }
+    const buffers = await Promise.all(
+      urls.map((url) => this.bufferCache.get(url) ?? this.loadBuffer(url)),
+    );
+    if (token !== this.speechToken) {
+      // Cancelled while awaiting fetch/decode; treat as handled cleanly.
+      return true;
     }
+    if (buffers.some((b) => !b)) {
+      return false;
+    }
+    const validBuffers = buffers as AudioBuffer[];
 
     const rate = Math.max(0.7, Math.min(1.4, options.rate));
     const now = ctx.currentTime;
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.playbackRate.setValueAtTime(rate, now);
+    const scheduledNodes: ActiveVoiceNode[] = [];
+    const startTimes: number[] = [];
+    let cursor = now + 0.008;
+    let totalDurationSec = 0;
 
-    const clipGain = ctx.createGain();
-    clipGain.gain.setValueAtTime(1.0, now);
+    for (let i = 0; i < validBuffers.length; i++) {
+      const buf = validBuffers[i];
+      const paramTime = i === 0 ? now : cursor;
+      const source = ctx.createBufferSource();
+      source.buffer = buf;
+      source.playbackRate.setValueAtTime(rate, paramTime);
 
-    source.connect(clipGain);
-    clipGain.connect(voiceInput);
+      const clipGain = ctx.createGain();
+      clipGain.gain.setValueAtTime(1.0, paramTime);
 
-    this.activeSource = source;
-    this.activeGain = clipGain;
+      source.connect(clipGain);
+      clipGain.connect(voiceInput);
+
+      const nodeEntry: ActiveVoiceNode = { source, gain: clipGain };
+      scheduledNodes.push(nodeEntry);
+      startTimes.push(cursor);
+
+      if (i < validBuffers.length - 1) {
+        source.onended = () => {
+          source.onended = null;
+          try {
+            source.disconnect();
+            clipGain.disconnect();
+          } catch {
+            // Ignore
+          }
+        };
+        const advanceSec = Math.max(
+          0.15,
+          (buf.duration - CHAIN_OVERLAP_SEC) / rate,
+        );
+        cursor += advanceSec;
+        totalDurationSec += advanceSec;
+      } else {
+        totalDurationSec += buf.duration / rate;
+      }
+    }
+
+    this.activeChain = scheduledNodes;
+    const lastEntry = scheduledNodes[scheduledNodes.length - 1];
 
     let settled = false;
     const finish = () => {
@@ -183,26 +242,29 @@ export class AudioBufferAnnouncer {
         window.clearTimeout(this.watchdogTimer);
         this.watchdogTimer = null;
       }
-      if (this.activeSource === source) {
-        this.activeSource = null;
-        this.activeGain = null;
+      if (this.activeChain === scheduledNodes) {
+        this.activeChain = [];
       }
-      source.onended = null;
-      try {
-        source.disconnect();
-        clipGain.disconnect();
-      } catch {
-        // Ignore
+      for (const { source, gain } of scheduledNodes) {
+        source.onended = null;
+        try {
+          source.disconnect();
+          gain.disconnect();
+        } catch {
+          // Ignore
+        }
       }
       options.onEnd?.();
     };
 
-    source.onended = finish;
-    const expectedMs = Math.ceil((buffer.duration / rate) * 1000);
+    lastEntry.source.onended = finish;
+    const expectedMs = Math.ceil(totalDurationSec * 1000);
     this.watchdogTimer = window.setTimeout(finish, expectedMs + 800);
 
     try {
-      source.start(now + 0.008);
+      for (let i = 0; i < scheduledNodes.length; i++) {
+        scheduledNodes[i].source.start(startTimes[i]);
+      }
       options.onStart?.();
       return true;
     } catch {

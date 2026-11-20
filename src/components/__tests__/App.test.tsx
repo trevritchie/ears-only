@@ -296,6 +296,33 @@ describe('Paws Off App UI', () => {
       screen.getByRole('switch', { name: /strict resolution/i }),
     ).toHaveAttribute('aria-checked', 'false');
 
+    // Expand Inversions (Root only by default), update globals + per-chord override + style, and persist
+    expect(screen.getByText('Root only')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /inversions/i }));
+    const triadInvGroup = screen.getByRole('group', {
+      name: /triad inversions default/i,
+    });
+    await user.click(within(triadInvGroup).getByRole('button', { name: '1st' }));
+    const seventhInvGroup = screen.getByRole('group', {
+      name: /seventh inversions default/i,
+    });
+    await user.click(
+      within(seventhInvGroup).getByRole('button', { name: '3rd' }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: /customize per chord/i }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'I second inversion' }),
+    );
+    expect(screen.getByText('1 override')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: 'Figured bass' }),
+    );
+    await user.click(
+      screen.getByRole('switch', { name: /musical voice-leading/i }),
+    );
+
     expect(
       screen.getByRole('button', { name: /built-in \(pocket\)/i }),
     ).toHaveAttribute('aria-pressed', 'true');
@@ -329,5 +356,10 @@ describe('Paws Off App UI', () => {
     expect(saved.strictSecondaryResolution).toBe(false);
     expect(saved.allowedSecondaryDominants).toHaveLength(8);
     expect(saved.allowedSecondaryDominants).not.toContain('V/ii');
+    expect(saved.triadInversions).toEqual([0, 1]);
+    expect(saved.seventhInversions).toEqual([0, 3]);
+    expect(saved.chordInversionOverrides).toEqual({ I: [0, 1, 2] });
+    expect(saved.inversionNotation).toBe('figured-bass');
+    expect(saved.musicalInversionLeading).toBe(false);
   });
 });

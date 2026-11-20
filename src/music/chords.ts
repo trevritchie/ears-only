@@ -1,12 +1,15 @@
 import type {
   ChordId,
+  ChordInversion,
   DiatonicChordId,
   HalfDimNaming,
+  InversionNotation,
   PitchClass,
   ScaleDegree,
   SecondaryDominantId,
   SecondarySeventhId,
   SecondaryTriadId,
+  SessionSettings,
   SeventhId,
   TriadId,
 } from '../types/settings';
@@ -257,8 +260,8 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
     rootOffset: 7,
     intervals: [0, 4, 7, 10],
     upperIntervals: [4, 7, 10],
-    spokenLabel: 'Five dominant seven',
-    estimatedSyllables: 6,
+    spokenLabel: 'Five seven',
+    estimatedSyllables: 3,
   },
   vi7: {
     id: 'vi7',
@@ -381,27 +384,201 @@ export const CHORD_DEFS: Record<ChordId, ChordDefinition> = {
   },
 };
 
+export function isSeventhChordId(id: ChordId): boolean {
+  const cat = CHORD_DEFS[id].category;
+  return cat === 'seventh' || cat === 'secondary-seventh';
+}
+
+export function getMaxInversionForChord(id: ChordId): 2 | 3 {
+  return isSeventhChordId(id) ? 3 : 2;
+}
+
+export function getAllowedInversionsForChord(
+  chordId: ChordId,
+  settings: Pick<
+    SessionSettings,
+    'triadInversions' | 'seventhInversions' | 'chordInversionOverrides'
+  >,
+): ChordInversion[] {
+  const maxInv = getMaxInversionForChord(chordId);
+  const override = settings.chordInversionOverrides[chordId];
+  if (override && override.length > 0) {
+    const valid = override.filter((inv) => inv >= 0 && inv <= maxInv);
+    if (valid.length > 0) return valid;
+  }
+  const globalPool = isSeventhChordId(chordId)
+    ? settings.seventhInversions
+    : settings.triadInversions;
+  const filtered = globalPool.filter(
+    (inv): inv is ChordInversion => inv >= 0 && inv <= maxInv,
+  );
+  return filtered.length > 0 ? filtered : [0];
+}
+
+export function getChordBassPitchClass(
+  chordId: ChordId,
+  inversion: ChordInversion,
+  key: PitchClass,
+): PitchClass {
+  const def = CHORD_DEFS[chordId];
+  const safeInv = Math.min(inversion, def.intervals.length - 1);
+  return ((key + def.rootOffset + (def.intervals[safeInv] ?? 0)) %
+    12) as PitchClass;
+}
+
+const INVERSION_NAME_SHORT: Record<1 | 2 | 3, string> = {
+  1: '1st',
+  2: '2nd',
+  3: '3rd',
+};
+
+const BASS_TONE_SHORT: Record<1 | 2 | 3, string> = {
+  1: '3rd in bass',
+  2: '5th in bass',
+  3: '7th in bass',
+};
+
+const TRIAD_FIGURES: Record<1 | 2, string> = {
+  1: '⁶',
+  2: '⁶₄',
+};
+
+const SEVENTH_FIGURES: Record<1 | 2 | 3, string> = {
+  1: '⁶₅',
+  2: '⁴₃',
+  3: '⁴₂',
+};
+
+export interface FormattedChordDisplay {
+  primary: string;
+  secondary?: string;
+  inline: string;
+}
+
+export function formatChordDisplay(
+  chordId: ChordId,
+  inversion: ChordInversion,
+  notation: InversionNotation = 'inversion-name',
+): FormattedChordDisplay {
+  const def = CHORD_DEFS[chordId];
+  const isSeventh = isSeventhChordId(chordId);
+  const maxInv = isSeventh ? 3 : 2;
+  const inv = Math.min(inversion, maxInv) as ChordInversion;
+
+  if (inv === 0) {
+    return { primary: def.symbol, inline: def.symbol };
+  }
+
+  if (notation === 'inversion-name') {
+    const label = INVERSION_NAME_SHORT[inv as 1 | 2 | 3];
+    return {
+      primary: def.symbol,
+      secondary: label,
+      inline: `${def.symbol} (${label})`,
+    };
+  }
+
+  if (notation === 'bass-tone') {
+    const label = BASS_TONE_SHORT[inv as 1 | 2 | 3];
+    return {
+      primary: def.symbol,
+      secondary: label,
+      inline: `${def.symbol} (${label})`,
+    };
+  }
+
+  // Figured bass notation
+  const fig = isSeventh
+    ? SEVENTH_FIGURES[inv as 1 | 2 | 3]
+    : TRIAD_FIGURES[inv as 1 | 2];
+
+  if (def.symbol.includes('/')) {
+    const [head, tail] = def.symbol.split('/');
+    const baseHead = isSeventh && head.endsWith('7') ? head.slice(0, -1) : head;
+    const figured = `${baseHead}${fig}/${tail}`;
+    return { primary: figured, inline: figured };
+  }
+
+  const baseSymbol =
+    isSeventh && def.symbol.endsWith('7') ? def.symbol.slice(0, -1) : def.symbol;
+  const figured = `${baseSymbol}${fig}`;
+  return { primary: figured, inline: figured };
+}
+
+const INVERSION_NAME_SPOKEN: Record<
+  1 | 2 | 3,
+  { text: string; syllables: number }
+> = {
+  1: { text: 'first inversion', syllables: 4 },
+  2: { text: 'second inversion', syllables: 5 },
+  3: { text: 'third inversion', syllables: 4 },
+};
+
+const BASS_TONE_SPOKEN: Record<1 | 2 | 3, { text: string; syllables: number }> =
+  {
+    1: { text: 'with the third in the bass', syllables: 6 },
+    2: { text: 'with the fifth in the bass', syllables: 6 },
+    3: { text: 'with the seventh in the bass', syllables: 7 },
+  };
+
+export function getInversionSuffixPhrases(
+  notation: InversionNotation,
+): readonly string[] {
+  if (notation === 'bass-tone') {
+    return [
+      BASS_TONE_SPOKEN[1].text,
+      BASS_TONE_SPOKEN[2].text,
+      BASS_TONE_SPOKEN[3].text,
+    ];
+  }
+  return [
+    INVERSION_NAME_SPOKEN[1].text,
+    INVERSION_NAME_SPOKEN[2].text,
+    INVERSION_NAME_SPOKEN[3].text,
+  ];
+}
+
 export function getSpokenChordPhrase(
   chordId: ChordId,
   halfDimNaming: HalfDimNaming,
   announceTriadQuality = false,
+  inversion: ChordInversion = 0,
+  inversionNotation: InversionNotation = 'inversion-name',
 ): { text: string; estimatedSyllables: number } {
+  let baseText: string;
+  let baseSyllables: number;
+
   if (chordId === 'viihalfdim7' && halfDimNaming === 'minor-seven-flat-five') {
+    baseText = 'Seven minor seven flat five';
+    baseSyllables = 8;
+  } else {
+    const def = CHORD_DEFS[chordId];
+    if (announceTriadQuality && def.spokenQualityLabel) {
+      baseText = def.spokenQualityLabel;
+      baseSyllables = def.estimatedQualitySyllables ?? def.estimatedSyllables;
+    } else {
+      baseText = def.spokenLabel;
+      baseSyllables = def.estimatedSyllables;
+    }
+  }
+
+  const maxInv = getMaxInversionForChord(chordId);
+  const inv = Math.min(inversion, maxInv) as ChordInversion;
+  if (inv === 0) {
     return {
-      text: 'Seven minor seven flat five',
-      estimatedSyllables: 8,
+      text: baseText,
+      estimatedSyllables: baseSyllables,
     };
   }
-  const def = CHORD_DEFS[chordId];
-  if (announceTriadQuality && def.spokenQualityLabel) {
-    return {
-      text: def.spokenQualityLabel,
-      estimatedSyllables: def.estimatedQualitySyllables ?? def.estimatedSyllables,
-    };
-  }
+
+  const suffix =
+    inversionNotation === 'bass-tone'
+      ? BASS_TONE_SPOKEN[inv as 1 | 2 | 3]
+      : INVERSION_NAME_SPOKEN[inv as 1 | 2 | 3];
+
   return {
-    text: def.spokenLabel,
-    estimatedSyllables: def.estimatedSyllables,
+    text: `${baseText} ${suffix.text}`,
+    estimatedSyllables: baseSyllables + suffix.syllables,
   };
 }
 

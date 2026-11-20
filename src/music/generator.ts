@@ -1,11 +1,13 @@
 import type {
   ChordId,
+  ChordInversion,
   DiatonicChordId,
   KeyOrientationMode,
   PitchClass,
+  ProgressionChord,
   SecondaryDominantId,
 } from '../types/settings';
-import { CHORD_DEFS } from './chords';
+import { CHORD_DEFS, getChordBassPitchClass } from './chords';
 
 function pickRandomItem<T>(items: readonly T[], rng: () => number): T {
   const index = Math.min(items.length - 1, Math.floor(rng() * items.length));
@@ -147,4 +149,195 @@ export function getOrientationChords(mode: KeyOrientationMode): ChordId[] {
     case 'none':
       return [];
   }
+}
+
+function weightedPick<T>(
+  items: readonly T[],
+  weights: readonly number[],
+  rng: () => number,
+): T {
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  if (total <= 0) return pickRandomItem(items, rng);
+  let target = rng() * total;
+  for (let i = 0; i < items.length; i++) {
+    target -= weights[i];
+    if (target <= 0) {
+      return items[i];
+    }
+  }
+  return items[items.length - 1];
+}
+
+function circularPitchDistance(pcA: number, pcB: number): number {
+  const d = Math.abs(pcA - pcB) % 12;
+  return Math.min(d, 12 - d);
+}
+
+function isLeadingToneFirstInversion(chordId: ChordId, inv: ChordInversion): boolean {
+  return (
+    inv === 1 &&
+    (chordId === 'V' ||
+      chordId === 'V7' ||
+      CHORD_DEFS[chordId].category === 'secondary-triad' ||
+      CHORD_DEFS[chordId].category === 'secondary-seventh')
+  );
+}
+
+export function assignProgressionInversions(
+  chords: readonly ChordId[],
+  getAllowedInversions: (chordId: ChordId) => readonly ChordInversion[],
+  key: PitchClass,
+  musicalLeading = true,
+  rng: () => number = Math.random,
+): ProgressionChord[] {
+  const n = chords.length;
+  const result: ProgressionChord[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const chordId = chords[i];
+    const allowedRaw = getAllowedInversions(chordId);
+    const allowed: ChordInversion[] =
+      allowedRaw.length > 0 ? [...allowedRaw] : [0];
+
+    if (allowed.length === 1) {
+      result.push({ chordId, inversion: allowed[0] });
+      continue;
+    }
+
+    if (!musicalLeading) {
+      result.push({ chordId, inversion: pickRandomItem(allowed, rng) });
+      continue;
+    }
+
+    const prev = i > 0 ? result[i - 1] : undefined;
+    const prevBassPc = prev
+      ? getChordBassPitchClass(prev.chordId, prev.inversion, key)
+      : undefined;
+    const nextChord = i < n - 1 ? chords[i + 1] : undefined;
+    const nextAllowed = nextChord ? getAllowedInversions(nextChord) : [];
+
+    const weights = allowed.map((inv) => {
+      if (i === 0) {
+        if (inv === 0) return 1.4;
+        if (inv === 1) return 1.1;
+        if (inv === 2) return 0.5;
+        return 0.55;
+      }
+
+      let weight = 1.0;
+      const currBassPc = getChordBassPitchClass(chordId, inv, key);
+      const bassStep = circularPitchDistance(prevBassPc!, currBassPc);
+
+      // Stepwise and common-tone bass motion
+      if (bassStep === 1 || bassStep === 2) {
+        weight *= 2.8;
+      } else if (bassStep === 0) {
+        weight *= 2.0;
+      } else if (bassStep === 3 || bassStep === 4) {
+        weight *= 1.3;
+      } else {
+        weight *= 0.85;
+      }
+
+      // Idiomatic resolution from 3rd inversion (4/2): bass (7th) steps down
+      const downStep = (prevBassPc! - currBassPc + 12) % 12;
+      if (prev!.inversion === 3 && (downStep === 1 || downStep === 2)) {
+        weight *= 4.5;
+      }
+
+      // Leading-tone 1st inversion (V6, V6/5, V6/x, V6/5/x) resolving up by semitone
+      const upStep = (currBassPc - prevBassPc! + 12) % 12;
+      if (isLeadingToneFirstInversion(prev!.chordId, prev!.inversion) && upStep === 1) {
+        weight *= 4.0;
+      }
+
+      // 2nd inversion (6/4) cadential, pedal, and passing idioms
+      if (inv === 2) {
+        let idiomatic = bassStep === 0;
+        if (nextChord) {
+          const nextRootPc = (key + CHORD_DEFS[nextChord].rootOffset) % 12;
+          if (currBassPc === nextRootPc) {
+            idiomatic = true;
+          }
+          // Passing 6/4: stepwise entry continuing stepwise in same direction
+          const signedIn = ((currBassPc - prevBassPc! + 18) % 12) - 6;
+          if (Math.abs(signedIn) >= 1 && Math.abs(signedIn) <= 2) {
+            const dir = Math.sign(signedIn);
+            for (const nInv of nextAllowed) {
+              const nb = getChordBassPitchClass(nextChord, nInv, key);
+              const signedOut = ((nb - currBassPc + 18) % 12) - 6;
+              if (
+                Math.sign(signedOut) === dir &&
+                Math.abs(signedOut) >= 1 &&
+                Math.abs(signedOut) <= 2
+              ) {
+                idiomatic = true;
+                break;
+              }
+            }
+          }
+        }
+        if (idiomatic) {
+          weight *= 2.6;
+        }
+        if (i === n - 1) {
+          weight *= 0.45;
+        }
+      }
+
+      // 3rd inversion (4/2) favors chords that can step down into the next bass
+      if (inv === 3) {
+        if (nextChord) {
+          const canStepDown = nextAllowed.some((nInv) => {
+            const nb = getChordBassPitchClass(nextChord, nInv, key);
+            const ds = (currBassPc - nb + 12) % 12;
+            return ds === 1 || ds === 2;
+          });
+          if (canStepDown) {
+            weight *= 1.8;
+          }
+        }
+        if (i === n - 1) {
+          weight *= 0.35;
+        }
+      }
+
+      return Math.max(0.25, weight);
+    });
+
+    result.push({
+      chordId,
+      inversion: weightedPick(allowed, weights, rng),
+    });
+  }
+
+  return result;
+}
+
+export function generateProgressionWithInversions(
+  allowedChords: readonly DiatonicChordId[],
+  length: number,
+  getAllowedInversions: (chordId: ChordId) => readonly ChordInversion[],
+  key: PitchClass,
+  musicalLeading = true,
+  previous?: readonly ChordId[],
+  rng: () => number = Math.random,
+  secondaryDominants: readonly SecondaryDominantId[] = [],
+  strictSecondaryResolution = true,
+): ProgressionChord[] {
+  const chords = generateProgression(
+    allowedChords,
+    length,
+    previous,
+    rng,
+    secondaryDominants,
+    strictSecondaryResolution,
+  );
+  return assignProgressionInversions(
+    chords,
+    getAllowedInversions,
+    key,
+    musicalLeading,
+    rng,
+  );
 }

@@ -24,6 +24,16 @@ export type SecondaryDominantId = SecondaryTriadId | SecondarySeventhId;
 
 export type ChordId = DiatonicChordId | SecondaryDominantId;
 
+export type TriadInversion = 0 | 1 | 2;
+export type SeventhInversion = 0 | 1 | 2 | 3;
+export type ChordInversion = 0 | 1 | 2 | 3;
+export type InversionNotation = 'inversion-name' | 'figured-bass' | 'bass-tone';
+
+export interface ProgressionChord {
+  chordId: ChordId;
+  inversion: ChordInversion;
+}
+
 export type TimbreId =
   | 'velvet-pad'
   | 'grand-piano'
@@ -53,6 +63,11 @@ export interface SessionSettings {
   secondaryDominantsEnabled: boolean;
   allowedSecondaryDominants: SecondaryDominantId[];
   strictSecondaryResolution: boolean;
+  triadInversions: TriadInversion[];
+  seventhInversions: SeventhInversion[];
+  chordInversionOverrides: Partial<Record<ChordId, ChordInversion[]>>;
+  inversionNotation: InversionNotation;
+  musicalInversionLeading: boolean;
   bpm: number;
   progressionLength: number;
   questionRepeats: number;
@@ -118,6 +133,21 @@ const VALID_DIATONIC_CHORD_SET = new Set<string>(VALID_DIATONIC_CHORD_IDS);
 const VALID_SECONDARY_DOMINANT_SET = new Set<string>(
   VALID_SECONDARY_DOMINANT_IDS,
 );
+const VALID_CHORD_SET = new Set<string>(VALID_CHORD_IDS);
+const SEVENTH_CHORD_SET = new Set<string>([
+  'Imaj7',
+  'ii7',
+  'iii7',
+  'IVmaj7',
+  'V7',
+  'vi7',
+  'viihalfdim7',
+  'V7/ii',
+  'V7/iii',
+  'V7/IV',
+  'V7/V',
+  'V7/vi',
+]);
 
 export const LEGACY_SETTINGS_STORAGE_KEY = 'paws-off:settings:v1';
 export const SETTINGS_STORAGE_KEY = 'paws-off:settings:v2';
@@ -128,6 +158,11 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   secondaryDominantsEnabled: false,
   allowedSecondaryDominants: ['V7/ii', 'V7/iii', 'V7/IV', 'V7/V', 'V7/vi'],
   strictSecondaryResolution: true,
+  triadInversions: [0],
+  seventhInversions: [0],
+  chordInversionOverrides: {},
+  inversionNotation: 'inversion-name',
+  musicalInversionLeading: true,
   bpm: 120,
   progressionLength: 4,
   questionRepeats: 2,
@@ -171,12 +206,34 @@ function sanitizePitchClass(value: unknown, fallback: PitchClass): PitchClass {
   return num as PitchClass;
 }
 
+function sanitizeInversionList<T extends ChordInversion>(
+  raw: unknown,
+  maxInv: 2 | 3,
+): T[] {
+  if (!Array.isArray(raw)) return [];
+  const valid = new Set<number>();
+  for (const item of raw) {
+    if (
+      typeof item === 'number' &&
+      Number.isInteger(item) &&
+      item >= 0 &&
+      item <= maxInv
+    ) {
+      valid.add(item);
+    }
+  }
+  return Array.from(valid).sort((a, b) => a - b) as T[];
+}
+
 export function sanitizeSettings(raw: unknown): SessionSettings {
   if (!raw || typeof raw !== 'object') {
     return {
       ...DEFAULT_SETTINGS,
       allowedChords: [...DEFAULT_SETTINGS.allowedChords],
       allowedSecondaryDominants: [...DEFAULT_SETTINGS.allowedSecondaryDominants],
+      triadInversions: [...DEFAULT_SETTINGS.triadInversions],
+      seventhInversions: [...DEFAULT_SETTINGS.seventhInversions],
+      chordInversionOverrides: {},
     };
   }
 
@@ -213,6 +270,49 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       allowedSecondaryDominants = deduped;
     }
   }
+
+  const sanitizedTriadInversions = sanitizeInversionList<TriadInversion>(
+    obj.triadInversions,
+    2,
+  );
+  const triadInversions: TriadInversion[] =
+    sanitizedTriadInversions.length > 0
+      ? sanitizedTriadInversions
+      : [...DEFAULT_SETTINGS.triadInversions];
+
+  const sanitizedSeventhInversions = sanitizeInversionList<SeventhInversion>(
+    obj.seventhInversions,
+    3,
+  );
+  const seventhInversions: SeventhInversion[] =
+    sanitizedSeventhInversions.length > 0
+      ? sanitizedSeventhInversions
+      : [...DEFAULT_SETTINGS.seventhInversions];
+
+  const chordInversionOverrides: Partial<Record<ChordId, ChordInversion[]>> = {};
+  if (
+    obj.chordInversionOverrides &&
+    typeof obj.chordInversionOverrides === 'object' &&
+    !Array.isArray(obj.chordInversionOverrides)
+  ) {
+    const rawOverrides = obj.chordInversionOverrides as Record<string, unknown>;
+    for (const [key, val] of Object.entries(rawOverrides)) {
+      if (!VALID_CHORD_SET.has(key)) continue;
+      const chordKey = key as ChordId;
+      const maxInv: 2 | 3 = SEVENTH_CHORD_SET.has(key) ? 3 : 2;
+      const list = sanitizeInversionList<ChordInversion>(val, maxInv);
+      if (list.length > 0) {
+        chordInversionOverrides[chordKey] = list;
+      }
+    }
+  }
+
+  const inversionNotation: InversionNotation =
+    obj.inversionNotation === 'inversion-name' ||
+    obj.inversionNotation === 'figured-bass' ||
+    obj.inversionNotation === 'bass-tone'
+      ? obj.inversionNotation
+      : DEFAULT_SETTINGS.inversionNotation;
 
   const validTimbres: readonly TimbreId[] = [
     'velvet-pad',
@@ -287,6 +387,14 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       typeof obj.strictSecondaryResolution === 'boolean'
         ? obj.strictSecondaryResolution
         : DEFAULT_SETTINGS.strictSecondaryResolution,
+    triadInversions,
+    seventhInversions,
+    chordInversionOverrides,
+    inversionNotation,
+    musicalInversionLeading:
+      typeof obj.musicalInversionLeading === 'boolean'
+        ? obj.musicalInversionLeading
+        : DEFAULT_SETTINGS.musicalInversionLeading,
     bpm: clampInt(obj.bpm, 60, 240, DEFAULT_SETTINGS.bpm),
     progressionLength: clampInt(
       obj.progressionLength,

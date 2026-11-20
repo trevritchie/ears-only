@@ -1,6 +1,6 @@
 import { VolumeX } from 'lucide-react';
 import type { SessionSnapshot } from '../engine/sessionController';
-import { CHORD_DEFS, getMajorKeyInfo } from '../music/chords';
+import { CHORD_DEFS, formatChordDisplay, getMajorKeyInfo } from '../music/chords';
 import type { SessionSettings } from '../types/settings';
 
 interface PocketStageProps {
@@ -155,19 +155,51 @@ export function PocketStage({ snapshot, settings }: PocketStageProps) {
                   className={`flex ${isTwoRowStage ? 'h-14' : 'h-16'} items-center justify-center rounded-xl border transition-colors ${slotStyle}`}
                 >
                   {isRevealed ? (
-                    <span
-                      className={`px-1 whitespace-nowrap font-roman ${
-                        CHORD_DEFS[chordId].symbol.length >= 5
-                          ? isTwoRowStage
-                            ? 'text-sm sm:text-base'
-                            : 'text-base sm:text-xl'
-                          : isTwoRowStage
-                            ? 'text-lg sm:text-xl'
-                            : 'text-xl sm:text-2xl'
-                      } font-semibold tracking-tight`}
-                    >
-                      {CHORD_DEFS[chordId].symbol}
-                    </span>
+                    (() => {
+                      const inversion = snapshot.progressionInversions[idx] ?? 0;
+                      const display = formatChordDisplay(
+                        chordId,
+                        inversion,
+                        settings.inversionNotation,
+                      );
+                      if (display.secondary) {
+                        return (
+                          <div className="flex flex-col items-center justify-center px-1 text-center leading-tight">
+                            <span
+                              className={`whitespace-nowrap font-roman ${
+                                display.primary.length >= 5
+                                  ? isTwoRowStage
+                                    ? 'text-sm sm:text-base'
+                                    : 'text-base sm:text-lg'
+                                  : isTwoRowStage
+                                    ? 'text-base sm:text-lg'
+                                    : 'text-lg sm:text-xl'
+                              } font-semibold tracking-tight`}
+                            >
+                              {display.primary}
+                            </span>
+                            <span className="mt-0.5 whitespace-nowrap font-sans text-[9px] sm:text-[10px] font-medium leading-none opacity-85">
+                              {display.secondary}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <span
+                          className={`px-1 whitespace-nowrap font-roman ${
+                            display.primary.length >= 5
+                              ? isTwoRowStage
+                                ? 'text-sm sm:text-base'
+                                : 'text-base sm:text-xl'
+                              : isTwoRowStage
+                                ? 'text-lg sm:text-xl'
+                                : 'text-xl sm:text-2xl'
+                          } font-semibold tracking-tight`}
+                        >
+                          {display.primary}
+                        </span>
+                      );
+                    })()
                   ) : (
                     <span
                       className="h-1 w-4 rounded-full bg-current opacity-40"

@@ -24,6 +24,7 @@ function createInitialSnapshot(settings: SessionSettings): SessionSnapshot {
     currentPass: 1,
     totalPasses: settings.questionRepeats,
     progression: [],
+    progressionInversions: [],
     activeChordIndex: -1,
     revealedCount: 0,
     orientationStepIndex: -1,

@@ -36,7 +36,11 @@ import {
   VOICE_POCKET_CUT_DB,
   VOICE_POCKET_FREQ_HZ,
 } from '../synth';
-import { ALL_VOICE_CLIP_TEXTS, getVoiceClipUrl } from '../voiceClips';
+import {
+  ALL_VOICE_CLIP_TEXTS,
+  getVoiceClipUrl,
+  getVoiceClipUrlsForPhrase,
+} from '../voiceClips';
 import {
   chordSliderToGain,
   droneSliderToGain,
@@ -44,8 +48,8 @@ import {
 } from '../volume';
 
 describe('voiceClips mapping', () => {
-  it('maps every key and chord spoken phrase to an mp3 URL', () => {
-    expect(ALL_VOICE_CLIP_TEXTS).toHaveLength(43);
+  it('maps every key, chord, and inversion spoken phrase to an mp3 URL', () => {
+    expect(ALL_VOICE_CLIP_TEXTS).toHaveLength(49);
     for (const phrase of ALL_VOICE_CLIP_TEXTS) {
       const url = getVoiceClipUrl(phrase);
       expect(url).toMatch(/voice\/.*\.mp3(\?v=\d+)?$/);
@@ -71,6 +75,20 @@ describe('voiceClips mapping', () => {
         expect(getVoiceClipUrl(p2.text)).not.toBeNull();
       }
     }
+
+    // 2-clip resolution for inverted chords
+    expect(getVoiceClipUrlsForPhrase('One first inversion')).toEqual([
+      getVoiceClipUrl('One'),
+      getVoiceClipUrl('first inversion'),
+    ]);
+    expect(getVoiceClipUrlsForPhrase('Five seven third inversion')).toEqual([
+      getVoiceClipUrl('Five seven'),
+      getVoiceClipUrl('third inversion'),
+    ]);
+    expect(getVoiceClipUrlsForPhrase('One with the third in the bass')).toEqual([
+      getVoiceClipUrl('One'),
+      getVoiceClipUrl('with the third in the bass'),
+    ]);
   });
 });
 
@@ -220,6 +238,16 @@ describe('AudioBufferAnnouncer', () => {
       onended: (() => void) | null;
     } | null = null;
 
+    const createdSources: Array<{
+      buffer: AudioBuffer | null;
+      playbackRate: { setValueAtTime: ReturnType<typeof vi.fn> };
+      connect: ReturnType<typeof vi.fn>;
+      disconnect: ReturnType<typeof vi.fn>;
+      start: ReturnType<typeof vi.fn>;
+      stop: ReturnType<typeof vi.fn>;
+      onended: (() => void) | null;
+    }> = [];
+
     const gainNode = {
       gain: {
         value: 1,
@@ -246,6 +274,7 @@ describe('AudioBufferAnnouncer', () => {
           stop: vi.fn(),
           onended: null,
         };
+        createdSources.push(createdSource);
         return createdSource;
       }),
       createGain: vi.fn(() => gainNode),
@@ -259,6 +288,7 @@ describe('AudioBufferAnnouncer', () => {
       },
       ctx,
       getSource: () => createdSource,
+      getSources: () => createdSources,
     };
   }
 
@@ -318,6 +348,53 @@ describe('AudioBufferAnnouncer', () => {
     announcer.cancel();
     src.onended?.();
     expect(onEnd).not.toHaveBeenCalled();
+  });
+
+  it('chains 2 clips seamlessly for inverted phrases and cancels both sources cleanly', async () => {
+    const { host, getSources } = createMockHost();
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(12),
+    }) as unknown as typeof fetch;
+
+    const announcer = new AudioBufferAnnouncer(host, fetcher);
+    const onEnd = vi.fn();
+
+    const played = await announcer.trySpeak('Five seven third inversion', {
+      rate: 1.0,
+      voiceURI: null,
+      estimatedSyllables: 7,
+      onEnd,
+    });
+    expect(played).toBe(true);
+    const sources = getSources();
+    expect(sources).toHaveLength(2);
+    expect(sources[0].start).toHaveBeenCalledWith(10.008);
+    // 10.008 + (0.9 - 0.19) = 10.718
+    expect(sources[1].start.mock.calls[0][0]).toBeCloseTo(10.718, 3);
+    expect(
+      announcer.estimateDurationSec(7, 1.0, 'Five seven third inversion'),
+    ).toBeCloseTo(1.61, 3);
+
+    sources[0].onended?.();
+    expect(onEnd).not.toHaveBeenCalled();
+    sources[1].onended?.();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+
+    // Cancel clears chained sources
+    const onEndCancelled = vi.fn();
+    await announcer.trySpeak('One with the third in the bass', {
+      rate: 1.0,
+      voiceURI: null,
+      estimatedSyllables: 7,
+      onEnd: onEndCancelled,
+    });
+    announcer.cancel();
+    const nextSources = getSources().slice(2);
+    expect(nextSources[0].stop).toHaveBeenCalled();
+    expect(nextSources[1].stop).toHaveBeenCalled();
+    nextSources[1].onended?.();
+    expect(onEndCancelled).not.toHaveBeenCalled();
   });
 });
 
@@ -542,6 +619,34 @@ describe('meditative instruments & ambience', () => {
     expect(sanitizeSettings({ droneOctave: 2 }).droneOctave).toBe(2);
     expect(sanitizeSettings({ droneOctave: -5 }).droneOctave).toBe(-1);
     expect(sanitizeSettings({ droneOctave: 9 }).droneOctave).toBe(2);
+
+    // Inversion settings defaults, clamping, and override sanitization
+    expect(fresh.triadInversions).toEqual([0]);
+    expect(fresh.seventhInversions).toEqual([0]);
+    expect(fresh.chordInversionOverrides).toEqual({});
+    expect(fresh.inversionNotation).toBe('inversion-name');
+    expect(fresh.musicalInversionLeading).toBe(true);
+
+    const customInv = sanitizeSettings({
+      triadInversions: [2, 0, 99, 2],
+      seventhInversions: [3, 1, -1],
+      chordInversionOverrides: {
+        I: [1, 3, 2],
+        V7: [3, 0],
+        invalid: [1],
+        V: [],
+      },
+      inversionNotation: 'bass-tone',
+      musicalInversionLeading: false,
+    });
+    expect(customInv.triadInversions).toEqual([0, 2]);
+    expect(customInv.seventhInversions).toEqual([1, 3]);
+    expect(customInv.chordInversionOverrides).toEqual({
+      I: [1, 2],
+      V7: [0, 3],
+    });
+    expect(customInv.inversionNotation).toBe('bass-tone');
+    expect(customInv.musicalInversionLeading).toBe(false);
   });
 
   it('maps drone octave offsets cleanly from deep bass (-1) to high soprano pedal (+2)', () => {

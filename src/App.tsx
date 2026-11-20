@@ -38,6 +38,11 @@ export function App() {
         secondaryDominantsEnabled={settings.secondaryDominantsEnabled}
         allowedSecondaryDominants={settings.allowedSecondaryDominants}
         strictSecondaryResolution={settings.strictSecondaryResolution}
+        triadInversions={settings.triadInversions}
+        seventhInversions={settings.seventhInversions}
+        chordInversionOverrides={settings.chordInversionOverrides}
+        inversionNotation={settings.inversionNotation}
+        musicalInversionLeading={settings.musicalInversionLeading}
         announceTriadQuality={settings.announceTriadQuality}
         playChordsBehindAnswer={settings.playChordsBehindAnswer}
         onChange={(allowedChords) => updateSettings({ allowedChords })}
@@ -49,6 +54,21 @@ export function App() {
         }
         onToggleStrictSecondaryResolution={(strictSecondaryResolution) =>
           updateSettings({ strictSecondaryResolution })
+        }
+        onChangeTriadInversions={(triadInversions) =>
+          updateSettings({ triadInversions })
+        }
+        onChangeSeventhInversions={(seventhInversions) =>
+          updateSettings({ seventhInversions })
+        }
+        onChangeChordInversionOverrides={(chordInversionOverrides) =>
+          updateSettings({ chordInversionOverrides })
+        }
+        onChangeInversionNotation={(inversionNotation) =>
+          updateSettings({ inversionNotation })
+        }
+        onToggleMusicalInversionLeading={(musicalInversionLeading) =>
+          updateSettings({ musicalInversionLeading })
         }
         onToggleTriadQuality={(announceTriadQuality) =>
           updateSettings({ announceTriadQuality })
