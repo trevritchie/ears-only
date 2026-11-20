@@ -6,6 +6,8 @@ import {
   DIATONIC_CHORD_IDS,
   formatChordDisplay,
   getAllowedInversionsForChord,
+  getChordAvailableTensionOffsets,
+  getChordScalePitchClasses,
   getMajorScalePitchClasses,
   getScaleDegreePitchClass,
   getSpokenChordPhrase,
@@ -21,6 +23,10 @@ import {
   getOrientationChords,
   pickRandomNextKey,
 } from '../generator';
+import {
+  generateProgressionMelody,
+  melodyBarToScheduledNotes,
+} from '../melody';
 import {
   computeProgressionVoicePans,
   generateRandomVoicePans,
@@ -718,5 +724,171 @@ describe('voice-led stereo panning', () => {
         -0.2, 0.22, 0.6,
       ]);
     }
+  });
+});
+
+describe('counterpoint melody generator', () => {
+  it('defines available tensions without avoid notes and chromatic secondary scales', () => {
+    expect(getChordAvailableTensionOffsets('I')).toEqual([2, 9]);
+    expect(getChordAvailableTensionOffsets('IVmaj7')).toEqual([2, 6, 9]);
+    expect(getChordAvailableTensionOffsets('V7')).toEqual([2, 9]);
+    expect(getChordScalePitchClasses('V/V', 0)).toEqual(
+      new Set([0, 2, 4, 6, 7, 9, 11]),
+    );
+    expect(getChordScalePitchClasses('V7/IV', 0)).toEqual(
+      new Set([0, 2, 4, 5, 7, 9, 10]),
+    );
+  });
+
+  it('lowers upper chord voicing ceiling cleanly when requested for melody headroom across all 12 keys', () => {
+    const strategy = new RootBassVoiceLedStrategy();
+    for (const keyInfo of MAJOR_KEYS) {
+      const voiced = strategy.voiceSequence(
+        [
+          { chordId: 'I', inversion: 1 },
+          { chordId: 'V7/V', inversion: 1 },
+          { chordId: 'V7', inversion: 3 },
+          { chordId: 'I', inversion: 0 },
+        ],
+        keyInfo.pitchClass,
+        undefined,
+        { maxUpperMidi: 72, upperCenterTarget: 63 },
+      );
+      for (const chord of voiced) {
+        expect(chord.upperMidis[2]).toBeLessThanOrEqual(75);
+      }
+    }
+  });
+
+  it('keeps chord-tones-only melodies strictly in the chord above soprano with counterpoint rules across 12 keys', () => {
+    const strategy = new RootBassVoiceLedStrategy();
+    const seeded = (seed: number) => {
+      let s = seed >>> 0;
+      return () => {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967296;
+      };
+    };
+
+    for (let k = 0; k < MAJOR_KEYS.length; k++) {
+      const key = MAJOR_KEYS[k].pitchClass;
+      const voiced = strategy.voiceSequence(
+        [
+          { chordId: 'I', inversion: 0 },
+          { chordId: 'V7/V', inversion: 1 },
+          { chordId: 'V7', inversion: 2 },
+          { chordId: 'vi', inversion: 0 },
+        ],
+        key,
+        undefined,
+        { maxUpperMidi: 72, upperCenterTarget: 63 },
+      );
+      const bars = generateProgressionMelody(voiced, key, {
+        allowTensions: false,
+        rng: seeded(100 + k),
+      });
+      expect(bars).toHaveLength(4);
+
+      const flat = bars.flat();
+      bars.forEach((bar, barIdx) => {
+        if (barIdx < bars.length - 1) {
+          expect(bar.length).toBeGreaterThanOrEqual(2);
+          expect(bar.length).toBeLessThanOrEqual(4);
+        } else {
+          expect(bar.length).toBeGreaterThanOrEqual(1);
+          expect(bar.length).toBeLessThanOrEqual(2);
+        }
+        const def = CHORD_DEFS[voiced[barIdx].chordId];
+        const rootPc = (key + def.rootOffset) % 12;
+        const chordPcs = new Set(def.intervals.map((iv) => (rootPc + iv) % 12));
+        for (const ev of bar) {
+          expect(ev.toneKind).toBe('chord');
+          expect(chordPcs.has(ev.midi % 12)).toBe(true);
+          expect(ev.midi).toBeGreaterThan(voiced[barIdx].upperMidis[2]);
+        }
+      });
+
+      for (let i = 1; i < flat.length; i++) {
+        const absDelta = Math.abs(flat[i].midi - flat[i - 1].midi);
+        expect(absDelta).not.toBe(6);
+        expect(absDelta).not.toBe(10);
+        expect(absDelta).not.toBe(11);
+        expect(absDelta).toBeLessThanOrEqual(12);
+        if (i >= 2) {
+          expect(
+            flat[i].midi === flat[i - 1].midi &&
+              flat[i - 1].midi === flat[i - 2].midi,
+          ).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('enforces valid tensions on strong beats, stepwise entry/exit on weak passing tones, and emits role melody ScheduledNotes', () => {
+    const strategy = new RootBassVoiceLedStrategy();
+    let seenTension = false;
+    let seenPassing = false;
+
+    for (let run = 0; run < 20; run++) {
+      let s = (run + 1) * 7919;
+      const rng = () => {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967296;
+      };
+      const voiced = strategy.voiceSequence(
+        ['I', 'IVmaj7', 'ii7', 'V7', 'Imaj7'],
+        0,
+        undefined,
+        { maxUpperMidi: 72, upperCenterTarget: 63 },
+      );
+      const bars = generateProgressionMelody(voiced, 0, {
+        allowTensions: true,
+        rng,
+      });
+      const flat = bars.flat();
+
+      for (let i = 0; i < flat.length; i++) {
+        const ev = flat[i];
+        const voicedBar = voiced[ev.barIndex];
+        const def = CHORD_DEFS[voicedBar.chordId];
+        const rootPc = def.rootOffset % 12;
+        const chordPcs = new Set(def.intervals.map((iv) => (rootPc + iv) % 12));
+        const tensionPcs = new Set(
+          getChordAvailableTensionOffsets(voicedBar.chordId).map(
+            (off) => (rootPc + off) % 12,
+          ),
+        );
+        const pc = ev.midi % 12;
+
+        if (ev.isStrongBeat) {
+          expect(ev.toneKind).not.toBe('passing');
+          expect(chordPcs.has(pc) || tensionPcs.has(pc)).toBe(true);
+        }
+        if (ev.toneKind === 'tension') seenTension = true;
+        if (ev.toneKind === 'passing') {
+          seenPassing = true;
+          expect(ev.isStrongBeat).toBe(false);
+          expect(i).toBeGreaterThan(0);
+          expect(i).toBeLessThan(flat.length - 1);
+          const dIn = Math.abs(ev.midi - flat[i - 1].midi);
+          const dOut = Math.abs(flat[i + 1].midi - ev.midi);
+          expect(dIn).toBeGreaterThanOrEqual(1);
+          expect(dIn).toBeLessThanOrEqual(2);
+          expect(dOut).toBeGreaterThanOrEqual(1);
+          expect(dOut).toBeLessThanOrEqual(2);
+        }
+      }
+
+      const scheduled = melodyBarToScheduledNotes(bars[0], 2.0, 'clean-guitar');
+      for (const note of scheduled) {
+        expect(note.role).toBe('melody');
+        expect(note.timbre).toBe('clean-guitar');
+        expect(note.pan).toBe(0);
+        expect(note.durationSec).toBeGreaterThan(0);
+      }
+    }
+
+    expect(seenTension).toBe(true);
+    expect(seenPassing).toBe(true);
   });
 });

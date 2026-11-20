@@ -2,14 +2,15 @@ import { formatDroneNoteName } from '../audio/drone';
 import { INSTRUMENT_PRESETS } from '../audio/instruments';
 import { AMBIENCE_OPTIONS } from '../audio/reverb';
 import { getScaleDegreePitchClass } from '../music/chords';
-import type {
-  AmbienceMode,
-  DroneOctave,
-  PitchClass,
-  ScaleDegree,
-  SessionSettings,
-  TimbreId,
-  VoicePanningMode,
+import {
+  getRecommendedMelodyTimbre,
+  type AmbienceMode,
+  type DroneOctave,
+  type PitchClass,
+  type ScaleDegree,
+  type SessionSettings,
+  type TimbreId,
+  type VoicePanningMode,
 } from '../types/settings';
 import { SwitchRow } from './SwitchRow';
 
@@ -74,7 +75,10 @@ export function SoundAndMix({
                 type="button"
                 aria-pressed={active}
                 onClick={() => {
-                  onUpdate({ timbre: option.id });
+                  onUpdate({
+                    timbre: option.id,
+                    melodyTimbre: getRecommendedMelodyTimbre(option.id),
+                  });
                   onPreviewSound(
                     option.id,
                     settings.ambience,

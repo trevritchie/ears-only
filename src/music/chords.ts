@@ -424,6 +424,69 @@ export function getChordBassOffset(
   return ((def.rootOffset + (def.intervals[safeInv] ?? 0)) % 12) as PitchClass;
 }
 
+const CHORD_AVAILABLE_TENSIONS: Record<ChordId, readonly number[]> = {
+  I: [2, 9],
+  Imaj7: [2, 9],
+  ii: [2, 5],
+  ii7: [2, 5],
+  iii: [5],
+  iii7: [5],
+  IV: [2, 6, 9],
+  IVmaj7: [2, 6, 9],
+  V: [2, 9],
+  V7: [2, 9],
+  vi: [2, 5],
+  vi7: [2, 5],
+  viio: [5, 8],
+  viihalfdim7: [5, 8],
+  'V/ii': [2, 8],
+  'V7/ii': [2, 8],
+  'V/iii': [1, 8],
+  'V7/iii': [1, 8],
+  'V7/IV': [2, 9],
+  'V/V': [2, 9],
+  'V7/V': [2, 9],
+  'V/vi': [1, 8],
+  'V7/vi': [1, 8],
+};
+
+/**
+ * Available chord-scale tensions in semitones above the chord root,
+ * excluding b9 avoid-note clashes while staying diatonic to the parent key.
+ */
+export function getChordAvailableTensionOffsets(
+  chordId: ChordId,
+): readonly number[] {
+  return CHORD_AVAILABLE_TENSIONS[chordId];
+}
+
+const SECONDARY_SCALE_OFFSETS: Partial<Record<ChordId, readonly number[]>> = {
+  'V/ii': [1, 2, 4, 5, 7, 9, 11],
+  'V7/ii': [1, 2, 4, 5, 7, 9, 11],
+  'V/iii': [0, 2, 3, 4, 6, 9, 11],
+  'V7/iii': [0, 2, 3, 4, 6, 9, 11],
+  'V7/IV': [0, 2, 4, 5, 7, 9, 10],
+  'V/V': [0, 2, 4, 6, 7, 9, 11],
+  'V7/V': [0, 2, 4, 6, 7, 9, 11],
+  'V/vi': [0, 2, 4, 5, 8, 9, 11],
+  'V7/vi': [0, 2, 4, 5, 8, 9, 11],
+};
+
+/**
+ * 7-note pitch-class scale for stepwise passing tones over a chord, swapping
+ * any diatonic tone altered by a secondary dominant's chromatic pitches.
+ */
+export function getChordScalePitchClasses(
+  chordId: ChordId,
+  key: PitchClass,
+): Set<number> {
+  const customOffsets = SECONDARY_SCALE_OFFSETS[chordId];
+  if (!customOffsets) {
+    return getMajorScalePitchClasses(key);
+  }
+  return new Set(customOffsets.map((offset) => (key + offset) % 12));
+}
+
 export function getChordBassPitchClass(
   chordId: ChordId,
   inversion: ChordInversion,

@@ -36,6 +36,7 @@ class FakeSynth implements SynthEngine {
     currentTime: number;
   }[] = [];
   chordVolume = 0.75;
+  melodyVolume = 0.75;
   voiceVolume = 0.65;
   ambience: AmbienceMode = 'warm-room';
   chords: RecordedChord[] = [];
@@ -94,6 +95,10 @@ class FakeSynth implements SynthEngine {
 
   setChordVolume(volume: number): void {
     this.chordVolume = volume;
+  }
+
+  setMelodyVolume(volume: number): void {
+    this.melodyVolume = volume;
   }
 
   setVoiceVolume(volume: number): void {
@@ -1027,5 +1032,83 @@ describe('SessionController state machine & scheduler', () => {
     expect(pocket.metadataTitles[pocket.metadataTitles.length - 1]).toContain(
       firstIsV ? 'V7 (over Fa)' : 'V (over Ti)',
     );
+  });
+
+  it('plays an identical counterpoint melody on Question passes and Final Replay while muting Orientation and Answer Reveal', () => {
+    const { controller, synth, announcer, clock } = createHarness(
+      {
+        allowedChords: ['I', 'IV', 'V', 'vi'],
+        bpm: 120, // 2.0s per chord
+        progressionLength: 3,
+        questionRepeats: 2,
+        repeatPauseSec: 0.6,
+        keyMode: 'fixed',
+        fixedKey: 0,
+        keyOrientation: 'tonic',
+        voicePanning: true,
+        voicePanningMode: 'satb',
+        playFinalReplayAfterAnswer: true,
+        melodyEnabled: true,
+        melodyAllowTensions: false,
+        melodyVolume: 0.6,
+        melodyTimbre: 'soft-vibes',
+      },
+      [0.2, 0.7, 0.35, 0.85, 0.15, 0.6, 0.4, 0.9],
+    );
+
+    controller.start();
+    expect(synth.melodyVolume).toBe(0.6);
+
+    // Finish orientation speech and cadence -> must have ZERO melody notes
+    announcer.finishLatest();
+    advanceAndTick(synth, clock, 1.5);
+    const orientationNotes = synth.chords[0].notes;
+    expect(orientationNotes.some((n) => n.role === 'melody')).toBe(false);
+
+    // Finish inter-phase pause -> Pass 1 plays all 3 chords
+    advanceAndTick(synth, clock, 1.0);
+    const pass1StartIdx = 1;
+    advanceAndTick(synth, clock, 6.1);
+    const pass1MelodyPitches = synth.chords
+      .slice(pass1StartIdx, pass1StartIdx + 3)
+      .map((ch) => {
+        const mNotes = ch.notes.filter((n) => n.role === 'melody');
+        expect(mNotes.length).toBeGreaterThanOrEqual(1);
+        for (const mn of mNotes) {
+          expect(mn.timbre).toBe('soft-vibes');
+          expect(mn.pan).toBe(0);
+        }
+        return mNotes.map((mn) => mn.midi);
+      });
+
+    // Finish repeat pause -> Pass 2 replays the exact same melody
+    advanceAndTick(synth, clock, 6.9);
+    const pass2MelodyPitches = synth.chords
+      .slice(pass1StartIdx + 3, pass1StartIdx + 6)
+      .map((ch) => ch.notes.filter((n) => n.role === 'melody').map((mn) => mn.midi));
+    expect(pass2MelodyPitches).toEqual(pass1MelodyPitches);
+
+    // Finish pre_answer_pause -> Answer Reveal chords have ZERO melody notes
+    advanceAndTick(synth, clock, 1.2);
+    expect(controller.getSnapshot().phase).toBe('answer_revealing');
+    const answerRevealStart = pass1StartIdx + 6;
+    expect(
+      synth.chords[answerRevealStart].notes.some((n) => n.role === 'melody'),
+    ).toBe(false);
+
+    // Advance all 3 answer reveals -> Final Replay includes the exact same melody again
+    for (let i = 0; i < 3; i++) {
+      announcer.finishLatest();
+      advanceAndTick(synth, clock, 2.05);
+    }
+    advanceAndTick(synth, clock, 6.2);
+    const replayChords = synth.chords.slice(
+      answerRevealStart + 3,
+      answerRevealStart + 6,
+    );
+    const replayMelodyPitches = replayChords.map((ch) =>
+      ch.notes.filter((n) => n.role === 'melody').map((mn) => mn.midi),
+    );
+    expect(replayMelodyPitches).toEqual(pass1MelodyPitches);
   });
 });

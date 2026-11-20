@@ -14,11 +14,17 @@ export interface VoicedChord {
   allMidis: number[];
 }
 
+export interface VoicingOptions {
+  maxUpperMidi?: number;
+  upperCenterTarget?: number;
+}
+
 export interface VoicingStrategy {
   voiceSequence(
     chords: readonly (ChordId | ProgressionChord)[],
     key: PitchClass,
     previousVoicing?: VoicedChord,
+    options?: VoicingOptions,
   ): VoicedChord[];
 }
 
@@ -76,6 +82,8 @@ function selectBassMidi(bassPitchClass: number, prevBassMidi?: number): number {
 function generateUpperCandidates(
   upperPitchClasses: readonly [number, number, number],
   minUpperMidi: number,
+  maxUpperMidi: number = UPPER_MAX_MIDI,
+  fallbackMaxMidi: number = UPPER_FALLBACK_MAX_MIDI,
 ): [number, number, number][] {
   const buildForRange = (
     maxMidi: number,
@@ -113,22 +121,24 @@ function generateUpperCandidates(
     return results;
   };
 
-  const primaryClean = buildForRange(UPPER_MAX_MIDI, true);
+  const primaryClean = buildForRange(maxUpperMidi, true);
   if (primaryClean.length > 0) return primaryClean;
 
-  const fallbackClean = buildForRange(UPPER_FALLBACK_MAX_MIDI, true);
+  const fallbackClean = buildForRange(fallbackMaxMidi, true);
   if (fallbackClean.length > 0) return fallbackClean;
 
-  const primaryAny = buildForRange(UPPER_MAX_MIDI, false);
+  const primaryAny = buildForRange(maxUpperMidi, false);
   if (primaryAny.length > 0) return primaryAny;
 
-  return buildForRange(UPPER_FALLBACK_MAX_MIDI, false);
+  return buildForRange(fallbackMaxMidi, false);
 }
 
 function generateDoubledPairCandidates(
   pcA: number,
   pcB: number,
   minUpperMidi: number,
+  maxUpperMidi: number = UPPER_MAX_MIDI,
+  fallbackMaxMidi: number = UPPER_FALLBACK_MAX_MIDI,
 ): [number, number, number][] {
   const buildForRange = (maxMidi: number): [number, number, number][] => {
     const results: [number, number, number][] = [];
@@ -144,9 +154,9 @@ function generateDoubledPairCandidates(
     return results;
   };
 
-  const primary = buildForRange(UPPER_MAX_MIDI);
+  const primary = buildForRange(maxUpperMidi);
   if (primary.length > 0) return primary;
-  return buildForRange(UPPER_FALLBACK_MAX_MIDI);
+  return buildForRange(fallbackMaxMidi);
 }
 
 function buildCandidatesForChord(
@@ -154,6 +164,8 @@ function buildCandidatesForChord(
   inversion: ChordInversion,
   rootPitchClass: number,
   minUpperMidi: number,
+  maxUpperMidi: number = UPPER_MAX_MIDI,
+  fallbackMaxMidi: number = UPPER_FALLBACK_MAX_MIDI,
 ): UpperCandidate[] {
   const def = CHORD_DEFS[chordId];
   const intervals = def.intervals;
@@ -166,7 +178,12 @@ function buildCandidatesForChord(
       (rootPitchClass + remaining[1]) % 12,
       (rootPitchClass + remaining[2]) % 12,
     ];
-    return generateUpperCandidates(upperPcs, minUpperMidi).map((upper) => ({
+    return generateUpperCandidates(
+      upperPcs,
+      minUpperMidi,
+      maxUpperMidi,
+      fallbackMaxMidi,
+    ).map((upper) => ({
       upper,
       doublingPenalty: 0,
     }));
@@ -180,12 +197,15 @@ function buildCandidatesForChord(
   // Root position doubles the root; 2nd inversion (6/4) always doubles the bass (5th);
   // vii°6 doubles the stable bass (3rd = scale degree 2), never the leading tone or tritone.
   if (inversion === 0 || inversion === 2 || chordId === 'viio') {
-    return generateUpperCandidates([rPc, tPc, fPc], minUpperMidi).map(
-      (upper) => ({
-        upper,
-        doublingPenalty: 0,
-      }),
-    );
+    return generateUpperCandidates(
+      [rPc, tPc, fPc],
+      minUpperMidi,
+      maxUpperMidi,
+      fallbackMaxMidi,
+    ).map((upper) => ({
+      upper,
+      doublingPenalty: 0,
+    }));
   }
 
   // 1st inversion triad (6): bass holds the 3rd.
@@ -204,9 +224,24 @@ function buildCandidatesForChord(
   };
 
   // Double root or fifth (both keep the leading-tone 3rd single).
-  addPool(generateDoubledPairCandidates(rPc, fPc, minUpperMidi), 0);
   addPool(
-    generateDoubledPairCandidates(fPc, rPc, minUpperMidi),
+    generateDoubledPairCandidates(
+      rPc,
+      fPc,
+      minUpperMidi,
+      maxUpperMidi,
+      fallbackMaxMidi,
+    ),
+    0,
+  );
+  addPool(
+    generateDoubledPairCandidates(
+      fPc,
+      rPc,
+      minUpperMidi,
+      maxUpperMidi,
+      fallbackMaxMidi,
+    ),
     chordId === 'V' || def.category === 'secondary-triad' ? 0.35 : 0.45,
   );
 
@@ -215,7 +250,12 @@ function buildCandidatesForChord(
     const tonalThirdPenalty =
       chordId === 'ii' || chordId === 'IV' || chordId === 'vi' ? 0.2 : 0.7;
     addPool(
-      generateUpperCandidates([rPc, tPc, fPc], minUpperMidi),
+      generateUpperCandidates(
+        [rPc, tPc, fPc],
+        minUpperMidi,
+        maxUpperMidi,
+        fallbackMaxMidi,
+      ),
       tonalThirdPenalty,
     );
   }
@@ -223,17 +263,23 @@ function buildCandidatesForChord(
   const combined = Array.from(candidateMap.values());
   if (combined.length > 0) return combined;
 
-  return generateUpperCandidates([rPc, tPc, fPc], minUpperMidi).map(
-    (upper) => ({
-      upper,
-      doublingPenalty: 0,
-    }),
-  );
+  return generateUpperCandidates(
+    [rPc, tPc, fPc],
+    minUpperMidi,
+    maxUpperMidi,
+    fallbackMaxMidi,
+  ).map((upper) => ({
+    upper,
+    doublingPenalty: 0,
+  }));
 }
 
-function registerGravityPenalty(upper: readonly [number, number, number]): number {
+function registerGravityPenalty(
+  upper: readonly [number, number, number],
+  centerTarget: number = UPPER_CENTER_TARGET,
+): number {
   const mean = (upper[0] + upper[1] + upper[2]) / 3;
-  return 0.15 * Math.abs(mean - UPPER_CENTER_TARGET);
+  return 0.15 * Math.abs(mean - centerTarget);
 }
 
 function commonToneCount(
@@ -281,6 +327,7 @@ function transitionCost(
   prev: readonly [number, number, number],
   currBass: number,
   curr: UpperCandidate,
+  centerTarget: number = UPPER_CENTER_TARGET,
 ): number {
   const motion =
     Math.abs(curr.upper[0] - prev[0]) +
@@ -289,7 +336,7 @@ function transitionCost(
   return (
     motion -
     0.5 * commonToneCount(prev, curr.upper) +
-    registerGravityPenalty(curr.upper) +
+    registerGravityPenalty(curr.upper, centerTarget) +
     curr.doublingPenalty +
     parallelFifthOctavePenalty(prevBass, prev, currBass, curr.upper)
   );
@@ -305,8 +352,16 @@ export class RootBassVoiceLedStrategy implements VoicingStrategy {
     chords: readonly (ChordId | ProgressionChord)[],
     key: PitchClass,
     previousVoicing?: VoicedChord,
+    options?: VoicingOptions,
   ): VoicedChord[] {
     if (chords.length === 0) return [];
+
+    const maxUpper = options?.maxUpperMidi ?? UPPER_MAX_MIDI;
+    const fallbackMaxUpper =
+      options?.maxUpperMidi !== undefined
+        ? Math.max(maxUpper + 3, UPPER_FALLBACK_MAX_MIDI)
+        : UPPER_FALLBACK_MAX_MIDI;
+    const centerTarget = options?.upperCenterTarget ?? UPPER_CENTER_TARGET;
 
     const normalized: ProgressionChord[] = chords.map((item) => {
       if (typeof item === 'string') {
@@ -332,7 +387,14 @@ export class RootBassVoiceLedStrategy implements VoicingStrategy {
 
       const minUpper = Math.max(UPPER_MIN_FLOOR, bassMidi + 5);
       candidateLists.push(
-        buildCandidatesForChord(chordId, inversion, rootPitchClass, minUpper),
+        buildCandidatesForChord(
+          chordId,
+          inversion,
+          rootPitchClass,
+          minUpper,
+          maxUpper,
+          fallbackMaxUpper,
+        ),
       );
     }
 
@@ -353,8 +415,10 @@ export class RootBassVoiceLedStrategy implements VoicingStrategy {
             previousVoicing.upperMidis,
             bassMidis[0],
             cand,
+            centerTarget,
           )
-        : registerGravityPenalty(cand.upper) + cand.doublingPenalty;
+        : registerGravityPenalty(cand.upper, centerTarget) +
+          cand.doublingPenalty;
     }
 
     // Viterbi forward pass
@@ -372,6 +436,7 @@ export class RootBassVoiceLedStrategy implements VoicingStrategy {
               prevCands[p].upper,
               bassMidis[i],
               currCands[c],
+              centerTarget,
             );
           if (cost < bestCost) {
             bestCost = cost;

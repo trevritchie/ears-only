@@ -23,12 +23,13 @@ export function buildSoftVibesVoice({
   shared,
 }: VoiceBuildParams): BuiltVoiceNodes {
   const isBass = note.role === 'bass';
+  const isMelody = note.role === 'melody';
   const attackSec = 0.014;
 
   const noteFilter = ctx.createBiquadFilter();
   noteFilter.type = 'lowpass';
   noteFilter.Q.value = 0.55;
-  const cutoff = isBass ? 2200 : 4600;
+  const cutoff = isMelody ? 7200 : isBass ? 2200 : 4600;
   noteFilter.frequency.setValueAtTime(cutoff, now);
   noteFilter.frequency.setValueAtTime(cutoff, t0);
 
@@ -76,7 +77,7 @@ export function buildSoftVibesVoice({
   barOsc.type = 'sine';
   barOsc.frequency.setValueAtTime(freq * 3.98, t0);
   const barGain = ctx.createGain();
-  const barInit = isBass ? 0.04 : 0.1;
+  const barInit = isMelody ? 0.14 : isBass ? 0.04 : 0.1;
   barGain.gain.setValueAtTime(barInit, now);
   barGain.gain.setValueAtTime(barInit, t0);
   barGain.gain.setTargetAtTime(0.0005, t0 + attackSec, 0.09);
@@ -95,7 +96,10 @@ export function buildSoftVibesVoice({
   const malletGain = ctx.createGain();
   malletGain.gain.setValueAtTime(0, now);
   malletGain.gain.setValueAtTime(0, t0);
-  malletGain.gain.linearRampToValueAtTime(isBass ? 0.03 : 0.05, t0 + 0.004);
+  malletGain.gain.linearRampToValueAtTime(
+    isMelody ? 0.07 : isBass ? 0.03 : 0.05,
+    t0 + 0.004,
+  );
   malletGain.gain.exponentialRampToValueAtTime(0.0004, t0 + 0.024);
   malletSrc.connect(malletFilter);
   malletFilter.connect(malletGain);
@@ -113,6 +117,6 @@ export function buildSoftVibesVoice({
     oscs,
     bufferSources,
     auxNodes,
-    defaultReleaseSec: SOFT_VIBES_META.defaultReleaseSec,
+    defaultReleaseSec: isMelody ? 0.3 : SOFT_VIBES_META.defaultReleaseSec,
   };
 }

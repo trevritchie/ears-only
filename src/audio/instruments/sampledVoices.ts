@@ -178,6 +178,7 @@ function buildAcousticSampleVoice(
 
   const { ctx, now, t0, peakGain, note, envGain } = params;
   const isBass = note.role === 'bass';
+  const isMelody = note.role === 'melody';
 
   const src = ctx.createBufferSource();
   src.buffer = sample.buffer;
@@ -189,12 +190,21 @@ function buildAcousticSampleVoice(
     src.loopEnd = Math.max(src.loopStart + 0.5, sample.buffer.duration - 0.35);
   }
 
+  const cutoffHz = isMelody
+    ? Math.min(11000, profile.upperCutoffHz * 1.45)
+    : isBass
+      ? profile.bassCutoffHz
+      : profile.upperCutoffHz;
+  const attackSec = isMelody
+    ? Math.min(profile.attackSec, 0.045)
+    : profile.attackSec;
+  const defaultReleaseSec = isMelody
+    ? Math.min(profile.defaultReleaseSec, 0.22)
+    : profile.defaultReleaseSec;
+
   const polishFilter = ctx.createBiquadFilter();
   polishFilter.type = 'lowpass';
-  polishFilter.frequency.setValueAtTime(
-    isBass ? profile.bassCutoffHz : profile.upperCutoffHz,
-    now,
-  );
+  polishFilter.frequency.setValueAtTime(cutoffHz, now);
   polishFilter.Q.value = 0.5;
 
   src.connect(polishFilter);
@@ -202,14 +212,14 @@ function buildAcousticSampleVoice(
 
   envGain.gain.linearRampToValueAtTime(
     peakGain * profile.gainBoost,
-    t0 + profile.attackSec,
+    t0 + attackSec,
   );
 
   return {
     oscs: [],
     bufferSources: [src],
     auxNodes: [polishFilter],
-    defaultReleaseSec: profile.defaultReleaseSec,
+    defaultReleaseSec,
   };
 }
 

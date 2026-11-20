@@ -26,6 +26,11 @@ import {
   pickRandomNextKey,
 } from '../music/generator';
 import {
+  generateProgressionMelody,
+  melodyBarToScheduledNotes,
+  type MelodyNoteEvent,
+} from '../music/melody';
+import {
   computeProgressionVoicePans,
   generateRandomVoicePans,
   getOrderedVoicePans,
@@ -132,6 +137,7 @@ export class SessionController {
   private progression: ChordId[] = [];
   private progressionInversions: ChordInversion[] = [];
   private voicedProgression: VoicedChord[] = [];
+  private progressionMelody: MelodyNoteEvent[][] = [];
   private progressionPans: [number, number, number, number][] = [];
   private progressionVowels: ChoirVowel[] = [];
   private previousQuestionEndVoicing: VoicedChord | undefined = undefined;
@@ -209,6 +215,11 @@ export class SessionController {
     this.arrangementStrategy =
       deps.arrangementStrategy ?? defaultArrangementStrategy;
     this.rng = deps.rng ?? Math.random;
+
+    this.synth.setMelodyVolume(this.settings.melodyVolume);
+    if (this.settings.melodyEnabled) {
+      void this.synth.preloadTimbre?.(this.settings.melodyTimbre);
+    }
 
     this.wakeLockActive = this.pocket.isWakeLockActive();
     this.unsubWakeLock = this.pocket.onWakeLockChange((active) => {
@@ -387,6 +398,7 @@ export class SessionController {
     this.progression = [];
     this.progressionInversions = [];
     this.voicedProgression = [];
+    this.progressionMelody = [];
     this.activeChordIndex = -1;
     this.revealedCount = 0;
     this.orientationStepIndex = -1;
@@ -402,7 +414,11 @@ export class SessionController {
 
     this.announcer.preload?.(this.getPreloadPhrases());
     void this.synth.preloadTimbre?.(this.settings.timbre);
+    if (this.settings.melodyEnabled) {
+      void this.synth.preloadTimbre?.(this.settings.melodyTimbre);
+    }
     this.synth.setChordVolume(this.settings.chordVolume);
+    this.synth.setMelodyVolume(this.settings.melodyVolume);
     this.synth.setVoiceVolume(this.settings.voiceVolume);
     this.synth.setAmbience(this.settings.ambience);
     this.syncDrone();
@@ -517,17 +533,22 @@ export class SessionController {
     if (!enabled) {
       return notes.map((note) => ({ ...note, pan: 0, vowel }));
     }
+    const chordCount = notes.filter((note) => note.role !== 'melody').length;
     const targetPans =
       mode === 'random' && randomPans
         ? randomPans
         : mode === 'satb'
-          ? getSatbVoicePans(notes.length)
-          : getOrderedVoicePans(notes.length);
-    return notes.map((note, idx) => ({
-      ...note,
-      pan: targetPans[idx] ?? 0,
-      vowel,
-    }));
+          ? getSatbVoicePans(chordCount)
+          : getOrderedVoicePans(chordCount);
+    let chordCursor = 0;
+    return notes.map((note) => {
+      if (note.role === 'melody') {
+        return { ...note, pan: 0, vowel };
+      }
+      const pan = targetPans[chordCursor] ?? 0;
+      chordCursor++;
+      return { ...note, pan, vowel };
+    });
   }
 
   previewSound(
@@ -595,19 +616,105 @@ export class SessionController {
     }
   }
 
+  previewMelodySound(timbre?: TimbreId): void {
+    if (this.isRunning) return;
+
+    const targetTimbre = timbre ?? this.settings.melodyTimbre;
+    const previewVowel: ChoirVowel =
+      this.lastPreviewVowel === 'ooh' ? 'ahh' : 'ooh';
+    this.lastPreviewVowel = previewVowel;
+
+    const seq = ++this.previewSeq;
+    void this.synth.ensureContext();
+
+    const triggerPreview = () => {
+      if (this.isRunning || seq !== this.previewSeq) return;
+      const now = this.synth.getCurrentTime();
+      this.previewVoice?.release(now, 0.05);
+      this.previewVoice = null;
+
+      this.synth.setDucked(false, now);
+      this.synth.setMelodyVolume(this.settings.melodyVolume);
+      this.synth.setAmbience(this.settings.ambience);
+
+      const tonicMidi = 72 + this.settings.fixedKey;
+      const notes: ScheduledNote[] = [
+        {
+          midi: tonicMidi,
+          offsetSec: 0,
+          durationSec: 0.2,
+          velocity: 0.9,
+          role: 'melody',
+          timbre: targetTimbre,
+          pan: 0,
+          vowel: previewVowel,
+        },
+        {
+          midi: tonicMidi + 4,
+          offsetSec: 0.22,
+          durationSec: 0.2,
+          velocity: 0.88,
+          role: 'melody',
+          timbre: targetTimbre,
+          pan: 0,
+          vowel: previewVowel,
+        },
+        {
+          midi: tonicMidi + 7,
+          offsetSec: 0.44,
+          durationSec: 0.55,
+          velocity: 0.94,
+          role: 'melody',
+          timbre: targetTimbre,
+          pan: 0,
+          vowel: previewVowel,
+        },
+      ];
+      this.previewVoice = this.synth.playChord(notes, now + 0.025, targetTimbre);
+    };
+
+    if (isSampledTimbre(targetTimbre) && this.synth.preloadTimbre) {
+      void this.synth.preloadTimbre(targetTimbre).finally(triggerPreview);
+    } else {
+      triggerPreview();
+    }
+  }
+
   updateSettings(next: SessionSettings): void {
     const prev = this.settings;
     this.settings = this.cloneSettings(next);
     this.announcer.setMode?.(next.voiceSource);
     this.synth.setChordVolume(next.chordVolume);
+    this.synth.setMelodyVolume(next.melodyVolume);
     this.synth.setVoiceVolume(next.voiceVolume);
     this.synth.setAmbience(next.ambience);
     void this.synth.preloadTimbre?.(next.timbre);
+    if (next.melodyEnabled) {
+      void this.synth.preloadTimbre?.(next.melodyTimbre);
+    }
 
     if (!this.isRunning) {
       this.activeKey = next.fixedKey;
       this.emit();
       return;
+    }
+
+    if (
+      next.melodyEnabled &&
+      (!prev.melodyEnabled ||
+        next.melodyAllowTensions !== prev.melodyAllowTensions) &&
+      this.voicedProgression.length > 0
+    ) {
+      this.progressionMelody = generateProgressionMelody(
+        this.voicedProgression,
+        this.activeKey,
+        {
+          allowTensions: next.melodyAllowTensions,
+          rng: this.rng,
+        },
+      );
+    } else if (!next.melodyEnabled) {
+      this.progressionMelody = [];
     }
 
     this.announcer.preload?.(this.getPreloadPhrases());
@@ -704,7 +811,16 @@ export class SessionController {
       generated,
       this.activeKey,
       this.previousQuestionEndVoicing,
+      this.settings.melodyEnabled
+        ? { maxUpperMidi: 72, upperCenterTarget: 63 }
+        : undefined,
     );
+    this.progressionMelody = this.settings.melodyEnabled
+      ? generateProgressionMelody(this.voicedProgression, this.activeKey, {
+          allowTensions: this.settings.melodyAllowTensions,
+          rng: this.rng,
+        })
+      : [];
     this.progressionPans = computeProgressionVoicePans(
       this.voicedProgression,
       this.rng,
@@ -981,18 +1097,37 @@ export class SessionController {
         this.scheduleIndex < this.voicedProgression.length &&
         this.nextScheduleTime <= now + SCHEDULE_AHEAD_SEC
       ) {
+        const chordNotes = this.arrangementStrategy.arrangeChord(
+          this.voicedProgression[this.scheduleIndex],
+          slotDur,
+          preset.rollStepSec,
+          this.settings.melodyEnabled,
+        );
+        const melodyEvents = this.settings.melodyEnabled
+          ? (this.progressionMelody[this.scheduleIndex] ?? [])
+          : [];
+        const melodyNotes =
+          melodyEvents.length > 0
+            ? melodyBarToScheduledNotes(
+                melodyEvents,
+                slotDur,
+                this.settings.melodyTimbre,
+                this.progressionVowels[this.scheduleIndex],
+              )
+            : [];
         const notes = this.applyVoiceStyling(
-          this.arrangementStrategy.arrangeChord(
-            this.voicedProgression[this.scheduleIndex],
-            slotDur,
-            preset.rollStepSec,
-          ),
+          [...chordNotes, ...melodyNotes],
           this.progressionPans[this.scheduleIndex],
           this.progressionVowels[this.scheduleIndex],
         );
         this.synth.playChord(notes, this.nextScheduleTime, this.settings.timbre);
         if (this.phase === 'question_playing') {
-          this.lastQuestionReleaseSec = preset.defaultReleaseSec;
+          this.lastQuestionReleaseSec = this.settings.melodyEnabled
+            ? Math.max(
+                preset.defaultReleaseSec,
+                getInstrumentPreset(this.settings.melodyTimbre).defaultReleaseSec,
+              )
+            : preset.defaultReleaseSec;
         }
         this.visualCues.push({
           audioTime: this.nextScheduleTime,

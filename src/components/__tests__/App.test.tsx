@@ -515,4 +515,64 @@ describe('Paws Off App UI', () => {
     );
     expect(afterSolfege.inversionNotation).toBe('solfege');
   });
+
+  it('supports Melody over chords, Allow tensions, Melody volume, and auto-paired Melody sound with manual override', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    // Defaults OFF with sub-controls hidden
+    const melodyToggle = screen.getByRole('switch', {
+      name: /melody over chords/i,
+    });
+    expect(melodyToggle).toHaveAttribute('aria-checked', 'false');
+    expect(
+      screen.queryByRole('switch', { name: /allow tensions/i }),
+    ).not.toBeInTheDocument();
+
+    // Switching chord sound to Warm Rhodes auto-selects Clean Guitar as paired melody sound
+    const chordSoundGroup = screen.getByRole('group', { name: /synth sound/i });
+    await user.click(
+      within(chordSoundGroup).getByRole('button', { name: /warm rhodes/i }),
+    );
+
+    await user.click(melodyToggle);
+    expect(melodyToggle).toHaveAttribute('aria-checked', 'true');
+    const tensionsToggle = screen.getByRole('switch', {
+      name: /allow tensions/i,
+    });
+    expect(tensionsToggle).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByLabelText(/melody volume/i)).toBeInTheDocument();
+
+    // Melody sound drawer shows auto-paired Clean Guitar and allows manual override
+    const melodySoundBtn = screen.getByRole('button', { name: /melody sound/i });
+    expect(melodySoundBtn).toHaveAttribute('aria-expanded', 'false');
+    expect(within(melodySoundBtn).getByText('Clean Guitar')).toBeInTheDocument();
+
+    await user.click(melodySoundBtn);
+    expect(melodySoundBtn).toHaveAttribute('aria-expanded', 'true');
+
+    const melodyGrid = document.getElementById('melody-sound-grid')!;
+    await user.click(
+      within(melodyGrid).getByRole('button', { name: /concert harp/i }),
+    );
+    expect(within(melodySoundBtn).getByText('Concert Harp')).toBeInTheDocument();
+
+    await user.click(tensionsToggle);
+    expect(tensionsToggle).toHaveAttribute('aria-checked', 'true');
+
+    const saved = JSON.parse(
+      window.localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}',
+    );
+    expect(saved.melodyEnabled).toBe(true);
+    expect(saved.melodyAllowTensions).toBe(true);
+    expect(saved.melodyVolume).toBe(0.75);
+    expect(saved.timbre).toBe('warm-rhodes');
+    expect(saved.melodyTimbre).toBe('concert-harp');
+
+    // Switching chord sound afterwards auto-pairs again cleanly (Soft Vibes -> Warm Rhodes)
+    await user.click(
+      within(chordSoundGroup).getByRole('button', { name: /soft vibes/i }),
+    );
+    expect(within(melodySoundBtn).getByText('Warm Rhodes')).toBeInTheDocument();
+  });
 });

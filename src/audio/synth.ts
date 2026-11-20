@@ -10,7 +10,7 @@ import {
 } from './instruments/types';
 import { AMBIENCE_CONFIGS, createAmbienceImpulseResponse } from './reverb';
 import { AcousticSampleBank, isAcousticSampleTimbre } from './sampleBank';
-import { chordSliderToGain, voiceSliderToGain } from './volume';
+import { chordSliderToGain, melodySliderToGain, voiceSliderToGain } from './volume';
 
 export interface ChordVoiceHandle {
   release(atTime: number, customFadeSec?: number): void;
@@ -28,6 +28,7 @@ export interface SynthEngine {
   releaseAll(fadeSec?: number): void;
   setDucked(ducked: boolean, atTime?: number, timeConstantSec?: number): void;
   setChordVolume(volume: number): void;
+  setMelodyVolume(volume: number): void;
   setVoiceVolume(volume: number): void;
   setAmbience(mode: AmbienceMode): void;
   preloadTimbre?(timbre: TimbreId): Promise<void>;
@@ -43,11 +44,14 @@ export const VOICE_POCKET_FREQ_HZ = 1600;
 export const VOICE_POCKET_Q = 0.85;
 export const VOICE_POCKET_CUT_DB = -7.5;
 export const DUCKED_CHORD_BUS_GAIN = 0.78;
+export const MELODY_COUNT_SCALE = 0.58;
 
 export class PolySynth implements SynthEngine {
   private ctx: AudioContext | null = null;
   private chordBus: GainNode | null = null;
   private chordLevelGain: GainNode | null = null;
+  private melodyBus: GainNode | null = null;
+  private melodyLevelGain: GainNode | null = null;
   private voicePocketEq: BiquadFilterNode | null = null;
   private dryGain: GainNode | null = null;
   private wetGain: GainNode | null = null;
@@ -64,6 +68,7 @@ export class PolySynth implements SynthEngine {
   private stateListeners = new Set<(state: string) => void>();
   private isDucked = false;
   private chordVolume = 0.75;
+  private melodyVolume = 0.75;
   private voiceVolume = 0.65;
   private ambience: AmbienceMode = 'warm-room';
   private stateChangeBound: (() => void) | null = null;
@@ -97,6 +102,12 @@ export class PolySynth implements SynthEngine {
 
     const chordLevelGain = ctx.createGain();
     chordLevelGain.gain.value = chordSliderToGain(this.chordVolume);
+
+    const melodyBus = ctx.createGain();
+    melodyBus.gain.value = 1.0;
+
+    const melodyLevelGain = ctx.createGain();
+    melodyLevelGain.gain.value = melodySliderToGain(this.melodyVolume);
 
     const warmthFilter = ctx.createBiquadFilter();
     warmthFilter.type = 'lowpass';
@@ -147,6 +158,8 @@ export class PolySynth implements SynthEngine {
     chordLevelGain.connect(warmthFilter);
     warmthFilter.connect(presenceShelf);
     presenceShelf.connect(voicePocketEq);
+    melodyBus.connect(melodyLevelGain);
+    melodyLevelGain.connect(voicePocketEq);
     voicePocketEq.connect(dryGain);
     voicePocketEq.connect(convolver);
     convolver.connect(wetGain);
@@ -168,6 +181,8 @@ export class PolySynth implements SynthEngine {
     this.ctx = ctx;
     this.chordBus = chordBus;
     this.chordLevelGain = chordLevelGain;
+    this.melodyBus = melodyBus;
+    this.melodyLevelGain = melodyLevelGain;
     this.voicePocketEq = voicePocketEq;
     this.dryGain = dryGain;
     this.wetGain = wetGain;
@@ -177,6 +192,8 @@ export class PolySynth implements SynthEngine {
     this.graphNodes = [
       chordBus,
       chordLevelGain,
+      melodyBus,
+      melodyLevelGain,
       warmthFilter,
       presenceShelf,
       voicePocketEq,
@@ -262,6 +279,16 @@ export class PolySynth implements SynthEngine {
     );
   }
 
+  setMelodyVolume(volume: number): void {
+    this.melodyVolume = Math.max(0, Math.min(1, volume));
+    if (!this.ctx || !this.melodyLevelGain) return;
+    this.melodyLevelGain.gain.setTargetAtTime(
+      melodySliderToGain(this.melodyVolume),
+      this.ctx.currentTime,
+      0.04,
+    );
+  }
+
   setVoiceVolume(volume: number): void {
     this.voiceVolume = Math.max(0, Math.min(1, volume));
     if (!this.ctx || !this.voiceBus) return;
@@ -315,23 +342,26 @@ export class PolySynth implements SynthEngine {
     if (!ctx || !this.chordBus || !this.sharedResources) {
       return { release: () => {} };
     }
-    const bus = this.chordBus;
+    const chordDestination = this.chordBus;
+    const melodyDestination = this.melodyBus ?? this.chordBus;
     const shared = this.sharedResources;
 
     const baseStart = Math.max(ctx.currentTime + 0.005, startTime);
-    const countScale = 1 / Math.sqrt(Math.max(1, notes.length));
+    const chordNoteCount = notes.filter((n) => n.role !== 'melody').length;
+    const chordCountScale = 1 / Math.sqrt(Math.max(1, chordNoteCount));
     const noteReleases: ((atTime: number, customFadeSec?: number) => void)[] = [];
 
     notes.forEach((note, index) => {
+      const isMelody = note.role === 'melody';
       const pan = note.pan ?? computeVoicePan(index, notes.length, note.role);
       const releaseFn = this.scheduleSingleNote(
         ctx,
-        bus,
+        isMelody ? melodyDestination : chordDestination,
         note,
         index,
         baseStart,
-        countScale,
-        timbre,
+        isMelody ? MELODY_COUNT_SCALE : chordCountScale,
+        note.timbre ?? timbre,
         pan,
         shared,
       );
@@ -410,7 +440,6 @@ export class PolySynth implements SynthEngine {
       releaseGain.connect(destination);
     }
 
-    let noteReleased = false;
     const cleanup = () => {
       for (const osc of built.oscs) {
         try {
@@ -447,36 +476,70 @@ export class PolySynth implements SynthEngine {
       src.start(t0);
     }
 
-    const triggerRelease = (atTime: number, customFadeSec?: number) => {
-      if (noteReleased) return;
-      noteReleased = true;
-
-      const fadeSec = customFadeSec ?? built.defaultReleaseSec;
-      const releaseStart = Math.max(atTime, ctx.currentTime, t0 + 0.02);
-
-      releaseGain.gain.setValueAtTime(1.0, releaseStart);
-      releaseGain.gain.linearRampToValueAtTime(0, releaseStart + fadeSec);
-
-      const stopAt = releaseStart + fadeSec + 0.04;
+    const stopSourcesAt = (when: number) => {
       for (const osc of built.oscs) {
         try {
-          osc.stop(stopAt);
+          osc.stop(when);
         } catch {
           // Ignore if oscillator has not started or already stopped.
         }
       }
       for (const src of built.bufferSources) {
         try {
-          src.stop(stopAt);
+          src.stop(when);
         } catch {
           // Noise burst normally finishes on its own in 50ms.
         }
       }
     };
 
-    if (note.durationSec !== null) {
-      triggerRelease(t0 + note.durationSec);
+    const natReleaseStart =
+      note.durationSec !== null ? t0 + note.durationSec : null;
+    if (natReleaseStart !== null) {
+      releaseGain.gain.setValueAtTime(1.0, natReleaseStart);
+      releaseGain.gain.linearRampToValueAtTime(
+        0,
+        natReleaseStart + built.defaultReleaseSec,
+      );
+      stopSourcesAt(natReleaseStart + built.defaultReleaseSec + 0.04);
     }
+
+    let forcedReleased = false;
+    const triggerRelease = (atTime: number, customFadeSec?: number) => {
+      if (forcedReleased) return;
+      forcedReleased = true;
+
+      const fadeSec = customFadeSec ?? built.defaultReleaseSec;
+      const nowNow = ctx.currentTime;
+      const reqTime = Math.max(atTime, nowNow);
+
+      // Cancel pending future notes cleanly before onset so zero ghost notes sound.
+      if (reqTime < t0) {
+        releaseGain.gain.cancelScheduledValues?.(nowNow);
+        envGain.gain.cancelScheduledValues?.(nowNow);
+        releaseGain.gain.setValueAtTime(0, nowNow);
+        stopSourcesAt(t0 + 0.005);
+        return;
+      }
+
+      const releaseStart = Math.max(reqTime, t0 + 0.015);
+      if (natReleaseStart !== null && releaseStart >= natReleaseStart + built.defaultReleaseSec) {
+        return;
+      }
+
+      const startLevel =
+        natReleaseStart !== null && releaseStart > natReleaseStart
+          ? Math.max(
+              0,
+              1 - (releaseStart - natReleaseStart) / Math.max(0.001, built.defaultReleaseSec),
+            )
+          : 1.0;
+
+      releaseGain.gain.cancelScheduledValues?.(releaseStart);
+      releaseGain.gain.setValueAtTime(startLevel, releaseStart);
+      releaseGain.gain.linearRampToValueAtTime(0, releaseStart + fadeSec);
+      stopSourcesAt(releaseStart + fadeSec + 0.04);
+    };
 
     return triggerRelease;
   }
@@ -512,6 +575,8 @@ export class PolySynth implements SynthEngine {
     this.ctx = null;
     this.chordBus = null;
     this.chordLevelGain = null;
+    this.melodyBus = null;
+    this.melodyLevelGain = null;
     this.voicePocketEq = null;
     this.dryGain = null;
     this.wetGain = null;

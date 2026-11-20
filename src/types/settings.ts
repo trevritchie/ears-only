@@ -73,6 +73,10 @@ export interface SessionSettings {
   chordInversionOverrides: Partial<Record<ChordId, ChordInversion[]>>;
   inversionNotation: InversionNotation;
   musicalInversionLeading: boolean;
+  melodyEnabled: boolean;
+  melodyAllowTensions: boolean;
+  melodyVolume: number;
+  melodyTimbre: TimbreId;
   bpm: number;
   progressionLength: number;
   questionRepeats: number;
@@ -158,6 +162,27 @@ export const LEGACY_SETTINGS_STORAGE_KEY = 'paws-off:settings:v1';
 export const SETTINGS_STORAGE_KEY = 'paws-off:settings:v2';
 export const VOLUME_CALIBRATION_VERSION = 2;
 
+export const RECOMMENDED_MELODY_TIMBRE: Record<TimbreId, TimbreId> = {
+  'velvet-pad': 'soft-vibes',
+  'grand-piano': 'warm-strings',
+  'warm-strings': 'concert-harp',
+  'chamber-cello': 'concert-harp',
+  'satb-choir': 'concert-harp',
+  'french-horn': 'warm-strings',
+  'concert-harp': 'warm-strings',
+  'nylon-guitar': 'warm-strings',
+  'clean-guitar': 'soft-vibes',
+  harmonium: 'nylon-guitar',
+  'pipe-organ': 'french-horn',
+  'felt-piano': 'soft-vibes',
+  'warm-rhodes': 'clean-guitar',
+  'soft-vibes': 'warm-rhodes',
+};
+
+export function getRecommendedMelodyTimbre(chordTimbre: TimbreId): TimbreId {
+  return RECOMMENDED_MELODY_TIMBRE[chordTimbre] ?? 'soft-vibes';
+}
+
 export const DEFAULT_SETTINGS: SessionSettings = {
   allowedChords: ['I', 'IV', 'V', 'vi'],
   secondaryDominantsEnabled: false,
@@ -168,6 +193,10 @@ export const DEFAULT_SETTINGS: SessionSettings = {
   chordInversionOverrides: {},
   inversionNotation: 'inversion-name',
   musicalInversionLeading: true,
+  melodyEnabled: false,
+  melodyAllowTensions: false,
+  melodyVolume: 0.75,
+  melodyTimbre: 'soft-vibes',
   bpm: 120,
   progressionLength: 4,
   questionRepeats: 2,
@@ -343,6 +372,12 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       ? (obj.timbre as TimbreId)
       : DEFAULT_SETTINGS.timbre;
 
+  const melodyTimbre: TimbreId =
+    typeof obj.melodyTimbre === 'string' &&
+    (validTimbres as readonly string[]).includes(obj.melodyTimbre)
+      ? (obj.melodyTimbre as TimbreId)
+      : getRecommendedMelodyTimbre(timbre);
+
   const ambience: AmbienceMode =
     obj.ambience === 'dry' ||
     obj.ambience === 'warm-room' ||
@@ -402,6 +437,21 @@ export function sanitizeSettings(raw: unknown): SessionSettings {
       typeof obj.musicalInversionLeading === 'boolean'
         ? obj.musicalInversionLeading
         : DEFAULT_SETTINGS.musicalInversionLeading,
+    melodyEnabled:
+      typeof obj.melodyEnabled === 'boolean'
+        ? obj.melodyEnabled
+        : DEFAULT_SETTINGS.melodyEnabled,
+    melodyAllowTensions:
+      typeof obj.melodyAllowTensions === 'boolean'
+        ? obj.melodyAllowTensions
+        : DEFAULT_SETTINGS.melodyAllowTensions,
+    melodyVolume: clampNumber(
+      obj.melodyVolume,
+      0,
+      1,
+      DEFAULT_SETTINGS.melodyVolume,
+    ),
+    melodyTimbre,
     bpm: clampInt(obj.bpm, 60, 240, DEFAULT_SETTINGS.bpm),
     progressionLength: clampInt(
       obj.progressionLength,

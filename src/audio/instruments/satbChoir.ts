@@ -139,6 +139,7 @@ export function buildSatbChoirVoice({
   choirBank,
 }: VoiceBuildParams): BuiltVoiceNodes {
   const isBass = note.role === 'bass';
+  const isMelody = note.role === 'melody';
   const vowel: ChoirVowel = note.vowel ?? 'ooh';
   const sample = choirBank?.getSample(vowel, note.midi) ?? null;
 
@@ -153,7 +154,10 @@ export function buildSatbChoirVoice({
 
     const polishFilter = ctx.createBiquadFilter();
     polishFilter.type = 'lowpass';
-    polishFilter.frequency.setValueAtTime(isBass ? 2600 : 5200, now);
+    polishFilter.frequency.setValueAtTime(
+      isMelody ? 7800 : isBass ? 2600 : 5200,
+      now,
+    );
     polishFilter.Q.value = 0.5;
 
     src.connect(polishFilter);
@@ -161,20 +165,20 @@ export function buildSatbChoirVoice({
 
     // Mastered choir samples sit at ~-18.5 LUFS (-6 dB peak headroom); boost to
     // match Velvet Pad and Felt Piano perceived chord loudness evenly.
-    const attackSec = 0.18;
+    const attackSec = isMelody ? 0.055 : 0.18;
     envGain.gain.linearRampToValueAtTime(peakGain * 2.1, t0 + attackSec);
 
     return {
       oscs: [],
       bufferSources: [src],
       auxNodes: [polishFilter],
-      defaultReleaseSec: SATB_CHOIR_META.defaultReleaseSec,
+      defaultReleaseSec: isMelody ? 0.22 : SATB_CHOIR_META.defaultReleaseSec,
     };
   }
 
   // Fallback path: Csound Appendix D section-tuned formant synth ('ooh' or 'ahh')
   const section = getSectionSpec(vowel, voiceIndex, isBass);
-  const attackSec = 0.22;
+  const attackSec = isMelody ? 0.06 : 0.22;
 
   const oscs: OscillatorNode[] = [];
   const bufferSources: AudioBufferSourceNode[] = [];
@@ -205,8 +209,10 @@ export function buildSatbChoirVoice({
 
   const voiceOutFilter = ctx.createBiquadFilter();
   voiceOutFilter.type = 'lowpass';
+  const baseCutoff =
+    vowel === 'ahh' ? (isBass ? 2400 : 3800) : isBass ? 1600 : 2800;
   voiceOutFilter.frequency.setValueAtTime(
-    vowel === 'ahh' ? (isBass ? 2400 : 3800) : isBass ? 1600 : 2800,
+    isMelody ? baseCutoff + 1200 : baseCutoff,
     now,
   );
   voiceOutFilter.Q.value = 0.55;
@@ -262,6 +268,6 @@ export function buildSatbChoirVoice({
     oscs,
     bufferSources,
     auxNodes,
-    defaultReleaseSec: SATB_CHOIR_META.defaultReleaseSec,
+    defaultReleaseSec: isMelody ? 0.22 : SATB_CHOIR_META.defaultReleaseSec,
   };
 }

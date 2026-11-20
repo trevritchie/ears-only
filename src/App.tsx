@@ -17,6 +17,7 @@ export function App() {
     replayQuestion,
     skipToAnswer,
     previewSound,
+    previewMelodySound,
   } = useEarTrainer();
 
   return (
@@ -43,6 +44,11 @@ export function App() {
         chordInversionOverrides={settings.chordInversionOverrides}
         inversionNotation={settings.inversionNotation}
         musicalInversionLeading={settings.musicalInversionLeading}
+        melodyEnabled={settings.melodyEnabled}
+        melodyAllowTensions={settings.melodyAllowTensions}
+        melodyVolume={settings.melodyVolume}
+        melodyTimbre={settings.melodyTimbre}
+        isRunning={snapshot.isRunning}
         announceTriadQuality={settings.announceTriadQuality}
         playChordsBehindAnswer={settings.playChordsBehindAnswer}
         onChange={(allowedChords) => updateSettings({ allowedChords })}
@@ -70,6 +76,13 @@ export function App() {
         onToggleMusicalInversionLeading={(musicalInversionLeading) =>
           updateSettings({ musicalInversionLeading })
         }
+        onToggleMelody={(melodyEnabled) => updateSettings({ melodyEnabled })}
+        onToggleMelodyAllowTensions={(melodyAllowTensions) =>
+          updateSettings({ melodyAllowTensions })
+        }
+        onChangeMelodyVolume={(melodyVolume) => updateSettings({ melodyVolume })}
+        onChangeMelodyTimbre={(melodyTimbre) => updateSettings({ melodyTimbre })}
+        onPreviewMelodySound={previewMelodySound}
         onToggleTriadQuality={(announceTriadQuality) =>
           updateSettings({ announceTriadQuality })
         }

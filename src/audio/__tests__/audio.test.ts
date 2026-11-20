@@ -9,6 +9,7 @@ import {
   getSpokenKeyPhrase,
 } from '../../music/chords';
 import {
+  getRecommendedMelodyTimbre,
   type InversionNotation,
   LEGACY_SETTINGS_STORAGE_KEY,
   loadSettings,
@@ -34,6 +35,7 @@ import {
 import { createSilentWavBuffer } from '../silentKeepAlive';
 import {
   DUCKED_CHORD_BUS_GAIN,
+  MELODY_COUNT_SCALE,
   PolySynth,
   VOICE_POCKET_CUT_DB,
   VOICE_POCKET_FREQ_HZ,
@@ -46,6 +48,7 @@ import {
 import {
   chordSliderToGain,
   droneSliderToGain,
+  melodySliderToGain,
   voiceSliderToGain,
 } from '../volume';
 
@@ -740,6 +743,7 @@ describe('meditative instruments & ambience', () => {
       setTargetAtTime: vi.fn(),
       linearRampToValueAtTime: vi.fn(),
       exponentialRampToValueAtTime: vi.fn(),
+      cancelScheduledValues: vi.fn(),
     });
 
     class MockAudioContext {
@@ -840,6 +844,254 @@ describe('meditative instruments & ambience', () => {
         6.0,
         0.006,
       );
+
+      synth.dispose();
+    } finally {
+      Object.defineProperty(window, 'AudioContext', {
+        value: originalAudioContext,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+
+  it('validates melody settings, scales melody gain, shapes melody voices, and cancels future melody notes cleanly on releaseAll', async () => {
+    expect(melodySliderToGain(0)).toBe(0);
+    expect(melodySliderToGain(0.75)).toBeCloseTo(0.98, 1);
+
+    const fresh = sanitizeSettings({});
+    expect(fresh.melodyEnabled).toBe(false);
+    expect(fresh.melodyAllowTensions).toBe(false);
+    expect(fresh.melodyVolume).toBe(0.75);
+    expect(fresh.melodyTimbre).toBe('soft-vibes');
+
+    // Missing melodyTimbre auto-pairs cleanly from sanitized chord timbre
+    const paired = sanitizeSettings({ timbre: 'warm-rhodes' });
+    expect(paired.melodyTimbre).toBe(getRecommendedMelodyTimbre('warm-rhodes'));
+    expect(paired.melodyTimbre).toBe('clean-guitar');
+
+    const custom = sanitizeSettings({
+      timbre: 'grand-piano',
+      melodyEnabled: true,
+      melodyAllowTensions: true,
+      melodyVolume: 2.5,
+      melodyTimbre: 'concert-harp',
+    });
+    expect(custom.melodyEnabled).toBe(true);
+    expect(custom.melodyAllowTensions).toBe(true);
+    expect(custom.melodyVolume).toBe(1);
+    expect(custom.melodyTimbre).toBe('concert-harp');
+    expect(MELODY_COUNT_SCALE).toBeCloseTo(0.58, 2);
+
+    const createdGains: Array<{
+      gain: {
+        value: number;
+        setValueAtTime: ReturnType<typeof vi.fn>;
+        setTargetAtTime: ReturnType<typeof vi.fn>;
+        linearRampToValueAtTime: ReturnType<typeof vi.fn>;
+        cancelScheduledValues: ReturnType<typeof vi.fn>;
+      };
+      connect: ReturnType<typeof vi.fn>;
+      disconnect: ReturnType<typeof vi.fn>;
+    }> = [];
+    const createdFilters: Array<{
+      type: string;
+      frequency: {
+        value: number;
+        setValueAtTime: ReturnType<typeof vi.fn>;
+      };
+      Q: { value: number };
+      gain: { value: number };
+    }> = [];
+    const createdPanners: Array<{
+      pan: { setValueAtTime: ReturnType<typeof vi.fn> };
+    }> = [];
+    const createdOscs: Array<{
+      start: ReturnType<typeof vi.fn>;
+      stop: ReturnType<typeof vi.fn>;
+      disconnect: ReturnType<typeof vi.fn>;
+    }> = [];
+
+    const makeParam = (initial = 0) => ({
+      value: initial,
+      setValueAtTime: vi.fn(),
+      setTargetAtTime: vi.fn(),
+      linearRampToValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn(),
+      cancelScheduledValues: vi.fn(),
+    });
+
+    class MockPolyContext {
+      currentTime = 2.0;
+      sampleRate = 44100;
+      state = 'running';
+      destination = {};
+      addEventListener = vi.fn();
+      removeEventListener = vi.fn();
+      resume = vi.fn().mockResolvedValue(undefined);
+      close = vi.fn().mockResolvedValue(undefined);
+      createPeriodicWave = vi.fn(() => ({}));
+      createWaveShaper = vi.fn(() => ({
+        curve: null,
+        oversample: 'none',
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      }));
+      createGain = vi.fn(() => {
+        const node = {
+          gain: makeParam(1),
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        createdGains.push(node);
+        return node;
+      });
+      createBiquadFilter = vi.fn(() => {
+        const node = {
+          type: 'lowpass',
+          frequency: makeParam(350),
+          Q: { value: 1 },
+          gain: { value: 0 },
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        createdFilters.push(node);
+        return node;
+      });
+      createStereoPanner = vi.fn(() => {
+        const node = {
+          pan: makeParam(0),
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        createdPanners.push(node);
+        return node;
+      });
+      createOscillator = vi.fn(() => {
+        const node = {
+          type: 'sine',
+          frequency: makeParam(440),
+          detune: makeParam(0),
+          start: vi.fn(),
+          stop: vi.fn(),
+          disconnect: vi.fn(),
+          connect: vi.fn(),
+          setPeriodicWave: vi.fn(),
+          onended: null as (() => void) | null,
+        };
+        createdOscs.push(node);
+        return node;
+      });
+      createBufferSource = vi.fn(() => ({
+        buffer: null,
+        playbackRate: makeParam(1),
+        loop: false,
+        loopStart: 0,
+        loopEnd: 0,
+        start: vi.fn(),
+        stop: vi.fn(),
+        disconnect: vi.fn(),
+        connect: vi.fn(),
+        onended: null as (() => void) | null,
+      }));
+      createConvolver = vi.fn(() => ({
+        buffer: null,
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      }));
+      createDynamicsCompressor = vi.fn(() => ({
+        threshold: makeParam(-6),
+        knee: makeParam(12),
+        ratio: makeParam(3),
+        attack: makeParam(0.008),
+        release: makeParam(0.18),
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+      }));
+      createBuffer = vi.fn((ch: number, len: number) => {
+        const channels = Array.from({ length: ch }, () => new Float32Array(len));
+        return {
+          length: len,
+          numberOfChannels: ch,
+          getChannelData: (c: number) => channels[c],
+        };
+      });
+    }
+
+    const originalAudioContext = window.AudioContext;
+    Object.defineProperty(window, 'AudioContext', {
+      value: MockPolyContext,
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      const synth = new PolySynth();
+      await synth.ensureContext();
+      synth.setMelodyVolume(0.5);
+
+      const melodyLevelGain = createdGains[3];
+      expect(melodyLevelGain.gain.setTargetAtTime).toHaveBeenCalledWith(
+        melodySliderToGain(0.5),
+        2.0,
+        0.04,
+      );
+
+      // Play a chord with a future melody note scheduled on velvet-pad -> faster 55ms attack & brighter filter
+      const oscCountBefore = createdOscs.length;
+      const gainCountBefore = createdGains.length;
+      const filterCountBefore = createdFilters.length;
+      const pannerCountBefore = createdPanners.length;
+
+      synth.playChord(
+        [
+          {
+            midi: 48,
+            offsetSec: 0,
+            durationSec: 1.5,
+            velocity: 0.68,
+            role: 'bass',
+            pan: -0.25,
+          },
+          {
+            midi: 76,
+            offsetSec: 0.6,
+            durationSec: 0.5,
+            velocity: 0.92,
+            role: 'melody',
+            timbre: 'velvet-pad',
+            pan: 0,
+          },
+        ],
+        2.0,
+        'velvet-pad',
+      );
+
+      // Melody panner stays centered (0); melody filter opens brighter (1600 -> 4400)
+      const notePanners = createdPanners.slice(pannerCountBefore);
+      expect(notePanners[0].pan.setValueAtTime).toHaveBeenCalledWith(-0.25, 2.0);
+      expect(notePanners[1].pan.setValueAtTime).toHaveBeenCalledWith(0, 2.0);
+
+      const noteFilters = createdFilters.slice(filterCountBefore);
+      expect(noteFilters[0].frequency.setValueAtTime).toHaveBeenCalledWith(650, 2.0);
+      expect(noteFilters[1].frequency.setValueAtTime).toHaveBeenCalledWith(1600, 2.0);
+
+      // Melody velvet-pad attack is crisp 55ms instead of slow 180ms swell
+      const newGains = createdGains.slice(gainCountBefore);
+      // Bass envGain ramps to peak at t0 + 0.18; Melody envGain ramps at t0 + 0.055
+      const melodyEnvGain = newGains.find((g) =>
+        g.gain.linearRampToValueAtTime.mock.calls.some(
+          (call) => Math.abs((call[1] as number) - (2.605 + 0.055)) < 0.01,
+        ),
+      );
+      expect(melodyEnvGain).toBeDefined();
+
+      // Cancel while future melody note has NOT started yet (reqTime 2.0 < t0 2.6)
+      const melodyReleaseGain = newGains[newGains.indexOf(melodyEnvGain!) + 1];
+      synth.releaseAll();
+      expect(melodyReleaseGain.gain.cancelScheduledValues).toHaveBeenCalledWith(2.0);
+      expect(melodyReleaseGain.gain.setValueAtTime).toHaveBeenCalledWith(0, 2.0);
+      expect(createdOscs.slice(oscCountBefore).length).toBeGreaterThan(0);
 
       synth.dispose();
     } finally {

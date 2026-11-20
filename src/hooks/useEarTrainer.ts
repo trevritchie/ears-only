@@ -140,6 +140,10 @@ export function useEarTrainer() {
     [],
   );
 
+  const previewMelodySound = useCallback((timbre?: TimbreId) => {
+    controllerRef.current?.previewMelodySound(timbre);
+  }, []);
+
   return {
     settings,
     updateSettings,
@@ -150,5 +154,6 @@ export function useEarTrainer() {
     replayQuestion,
     skipToAnswer,
     previewSound,
+    previewMelodySound,
   };
 }

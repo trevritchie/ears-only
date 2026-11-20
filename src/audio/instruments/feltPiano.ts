@@ -23,14 +23,17 @@ export function buildFeltPianoVoice({
   shared,
 }: VoiceBuildParams): BuiltVoiceNodes {
   const isBass = note.role === 'bass';
+  const isMelody = note.role === 'melody';
   const attackSec = 0.016;
-  const highSoften = Math.max(0.75, 1 - Math.max(0, note.midi - 66) * 0.025);
+  const highSoften = isMelody
+    ? 1
+    : Math.max(0.75, 1 - Math.max(0, note.midi - 66) * 0.025);
 
   const noteFilter = ctx.createBiquadFilter();
   noteFilter.type = 'lowpass';
   noteFilter.Q.value = 0.6;
-  const startCutoff = isBass ? 2200 : 3600 * highSoften;
-  const endCutoff = isBass ? 1050 : 1650 * highSoften;
+  const startCutoff = isMelody ? 5200 : isBass ? 2200 : 3600 * highSoften;
+  const endCutoff = isMelody ? 2600 : isBass ? 1050 : 1650 * highSoften;
   noteFilter.frequency.setValueAtTime(startCutoff, now);
   noteFilter.frequency.setValueAtTime(startCutoff, t0);
   noteFilter.frequency.exponentialRampToValueAtTime(endCutoff, t0 + 1.4);
@@ -77,7 +80,10 @@ export function buildFeltPianoVoice({
   const hammerGain = ctx.createGain();
   hammerGain.gain.setValueAtTime(0, now);
   hammerGain.gain.setValueAtTime(0, t0);
-  hammerGain.gain.linearRampToValueAtTime(isBass ? 0.06 : 0.09, t0 + 0.005);
+  hammerGain.gain.linearRampToValueAtTime(
+    isMelody ? 0.11 : isBass ? 0.06 : 0.09,
+    t0 + 0.005,
+  );
   hammerGain.gain.exponentialRampToValueAtTime(0.0005, t0 + 0.036);
   hammerSrc.connect(hammerFilter);
   hammerFilter.connect(hammerGain);
@@ -94,6 +100,6 @@ export function buildFeltPianoVoice({
     oscs,
     bufferSources,
     auxNodes,
-    defaultReleaseSec: FELT_PIANO_META.defaultReleaseSec,
+    defaultReleaseSec: isMelody ? 0.24 : FELT_PIANO_META.defaultReleaseSec,
   };
 }

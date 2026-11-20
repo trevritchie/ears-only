@@ -23,6 +23,7 @@ export function buildWarmRhodesVoice({
   shared,
 }: VoiceBuildParams): BuiltVoiceNodes {
   const isBass = note.role === 'bass';
+  const isMelody = note.role === 'melody';
   const attackSec = 0.012;
 
   const shaper = ctx.createWaveShaper();
@@ -32,8 +33,8 @@ export function buildWarmRhodesVoice({
   const noteFilter = ctx.createBiquadFilter();
   noteFilter.type = 'lowpass';
   noteFilter.Q.value = 0.65;
-  const startCutoff = isBass ? 2000 : 4200;
-  const endCutoff = isBass ? 1100 : 2000;
+  const startCutoff = isMelody ? 6200 : isBass ? 2000 : 4200;
+  const endCutoff = isMelody ? 3200 : isBass ? 1100 : 2000;
   noteFilter.frequency.setValueAtTime(startCutoff, now);
   noteFilter.frequency.setValueAtTime(startCutoff, t0);
   noteFilter.frequency.exponentialRampToValueAtTime(endCutoff, t0 + 1.3);
@@ -59,7 +60,7 @@ export function buildWarmRhodesVoice({
   modOsc.frequency.setValueAtTime(freq * 2, t0);
 
   const modGain = ctx.createGain();
-  const initialFmDepth = freq * (isBass ? 0.2 : 0.42);
+  const initialFmDepth = freq * (isMelody ? 0.56 : isBass ? 0.2 : 0.42);
   modGain.gain.setValueAtTime(initialFmDepth, now);
   modGain.gain.setValueAtTime(initialFmDepth, t0);
   modGain.gain.setTargetAtTime(freq * 0.04, t0 + attackSec, 0.14);
@@ -100,6 +101,6 @@ export function buildWarmRhodesVoice({
       carrierGain,
       bodyGain,
     ],
-    defaultReleaseSec: WARM_RHODES_META.defaultReleaseSec,
+    defaultReleaseSec: isMelody ? 0.22 : WARM_RHODES_META.defaultReleaseSec,
   };
 }

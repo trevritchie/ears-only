@@ -13,6 +13,11 @@ export function chordSliderToGain(slider: number): number {
   return perceptualTaper(slider, 1.8) * 1.65;
 }
 
+/** Melody bus gain: matches chordSliderToGain headroom so 75% -> ~0.98. */
+export function melodySliderToGain(slider: number): number {
+  return perceptualTaper(slider, 1.8) * 1.65;
+}
+
 /** Voice bus gain: 65% -> ~0.24 (calm meditation balance), 100% -> 0.52 (+6.7 dB headroom). */
 export function voiceSliderToGain(slider: number): number {
   return perceptualTaper(slider, 1.8) * 0.52;

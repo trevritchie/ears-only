@@ -22,15 +22,16 @@ export function buildVelvetPadVoice({
   envGain,
 }: VoiceBuildParams): BuiltVoiceNodes {
   const isBass = note.role === 'bass';
-  const attackSec = 0.18;
+  const isMelody = note.role === 'melody';
+  const attackSec = isMelody ? 0.055 : 0.18;
 
   // Breathing filter swell: starts warm, opens gently, then settles into velvet
   const noteFilter = ctx.createBiquadFilter();
   noteFilter.type = 'lowpass';
   noteFilter.Q.value = 0.6;
-  const startCutoff = isBass ? 650 : 780;
-  const bloomCutoff = isBass ? 1400 : 2200;
-  const settleCutoff = isBass ? 950 : 1350;
+  const startCutoff = isMelody ? 1600 : isBass ? 650 : 780;
+  const bloomCutoff = isMelody ? 4400 : isBass ? 1400 : 2200;
+  const settleCutoff = isMelody ? 2800 : isBass ? 950 : 1350;
   noteFilter.frequency.setValueAtTime(startCutoff, now);
   noteFilter.frequency.setValueAtTime(startCutoff, t0);
   noteFilter.frequency.exponentialRampToValueAtTime(bloomCutoff, t0 + 0.65);
@@ -97,6 +98,6 @@ export function buildVelvetPadVoice({
     oscs,
     bufferSources: [],
     auxNodes,
-    defaultReleaseSec: VELVET_PAD_META.defaultReleaseSec,
+    defaultReleaseSec: isMelody ? 0.24 : VELVET_PAD_META.defaultReleaseSec,
   };
 }

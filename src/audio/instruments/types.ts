@@ -100,6 +100,9 @@ export function computeVoicePan(
   totalNotes: number,
   role: NoteRole,
 ): number {
+  if (role === 'melody') {
+    return 0;
+  }
   if (role === 'bass') {
     return -0.04;
   }
